@@ -506,9 +506,10 @@ const NIGHTS = {
 const run = {
   night: 1, total: 0, state: 'menu', game: null, resultAt: 0, counted: false, lastSecond: -1, lastWarn: false, settingsFrom: 'menu',
   nightsWon: 0, seed: 1, attempt: 0, weak: new Set(), shadeAlert: null, boardFrom: 'menu', lastEntry: null,
+  mode: 'campaign', // 'campaign' = 3 dem lien tiep (co bang xep hang); 'single' = chon mot dem de choi rieng
 };
-function newRun() { run.total = 0; run.nightsWon = 0; run.seed = (Date.now() & 0x7fffffff) || 1; run.attempt = 0; run.lastEntry = null; }
-const screens = ['menu', 'intro', 'pause', 'settings', 'board', 'result', 'dawn'];
+function newRun() { run.total = 0; run.nightsWon = 0; run.seed = (Date.now() & 0x7fffffff) || 1; run.attempt = 0; run.lastEntry = null; run.mode = 'campaign'; }
+const screens = ['menu', 'intro', 'pause', 'settings', 'select', 'board', 'result', 'dawn'];
 function show(name) {
   for (const s of screens) $(s).classList.toggle('on', s === name);
   document.body.classList.toggle('playing', run.state === 'play' || run.state === 'pause');
@@ -551,16 +552,19 @@ function showResult() {
   const lit = g.lanterns.filter((l) => l.lit).length, need = needLit(g);
   run.state = 'result';
   if (won && !run.counted) { run.total += g.score; run.nightsWon += 1; run.counted = true; }
-  if (won && run.night === 3) { $('dawnScore').textContent = run.total; run.state = 'dawn'; show('dawn'); showNameForm('dawnSlot'); return; }
+  if (won && run.night === 3 && run.mode === 'campaign') { $('dawnScore').textContent = run.total; run.state = 'dawn'; show('dawn'); showNameForm('dawnSlot'); return; }
   $('resTitle').textContent = won ? `Bình minh! Đêm ${run.night} hoàn thành` : 'Sương đen nuốt mất ánh sáng…';
   $('resBody').textContent = won
     ? `${lit}/${g.lanterns.length} đèn còn sáng · còn ${g.player.flames} ngọn lửa`
     : g.player.flames <= 0 ? 'Mây đã hết ngọn lửa.' : `Bình minh tới nhưng chỉ ${lit}/${g.lanterns.length} đèn còn sáng (cần ${need}).`;
   $('resScore').textContent = `Điểm đêm này: ${g.score}`;
   $('resTotal').textContent = `Tổng điểm: ${run.total}`;
-  $('btnNext').textContent = won ? 'Đêm kế tiếp' : `Chơi lại Đêm ${run.night}`;
+  const single = run.mode === 'single';
+  $('btnNext').textContent = single ? `Chơi lại Đêm ${run.night}` : won ? 'Đêm kế tiếp' : `Chơi lại Đêm ${run.night}`;
+  $('btnResSelect').style.display = single ? '' : 'none';
+  if (single) $('resTotal').textContent = 'Chế độ chọn đêm: không ghi vào bảng xếp hạng.';
   show('result');
-  if (won) hideNameForm(); else showNameForm('resSlot'); // thua o bat ky Dem nao cung duoc luu diem
+  if (won || single) hideNameForm(); else showNameForm('resSlot'); // thua o bat ky Dem nao (3 dem lien tiep) cung duoc luu diem
 }
 function toMenu() { run.state = 'menu'; run.game = null; show('menu'); }
 function openSettings(from) { run.settingsFrom = from; $('settings').classList.add('on'); for (const s of screens) if (s !== 'settings') $(s).classList.remove('on'); }
@@ -574,10 +578,15 @@ click('btnPauseSettings', () => openSettings('pause'));
 click('btnToMenu', toMenu);
 click('btnSettingsBack', () => { show(run.settingsFrom); });
 click('btnNext', () => {
-  if (run.game.state === 'won') showIntro(run.night + 1); else beginNight();
+  if (run.mode === 'campaign' && run.game.state === 'won') showIntro(run.night + 1); else beginNight();
 });
 click('btnResMenu', toMenu);
 click('btnAgain', () => { newRun(); showIntro(1); });
+// ---------- Chon dem: choi rieng mot dem bat ky (khong ghi bang xep hang) ----------
+click('btnSelect', () => show('select'));
+click('btnSelectBack', () => show('menu'));
+click('btnResSelect', () => { run.state = 'menu'; run.game = null; show('select'); });
+for (const n of [1, 2, 3]) click('btnNight' + n, () => { newRun(); run.mode = 'single'; showIntro(n); });
 
 const volEl = $('vol'), sensEl = $('sens');
 volEl.value = Math.round(settings.volume * 100); sensEl.value = Math.round(settings.sens * 100);
@@ -953,3 +962,4 @@ document.addEventListener('visibilitychange', () => {
 });
 addEventListener('pagehide', () => { audio.stopMusic(); audio.suspendAudio(); });
 window.__scene = () => scene; // de kiem tra / chup man hinh
+window.__showResult = () => showResult(); // de kiem tra giao dien khi vong ve bi tam dung

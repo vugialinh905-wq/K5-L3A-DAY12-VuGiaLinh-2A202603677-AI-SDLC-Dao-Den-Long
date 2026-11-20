@@ -1,5 +1,8 @@
 # Changelog
 
+## Sau v1.0.0
+- Thêm màn **Chọn đêm** ở menu: chơi riêng một đêm bất kỳ (không ghi bảng xếp hạng, có "Chơi lại đêm này" / "Chọn đêm khác"). Chỉ thay đổi giao diện; luật, headless và contract không đổi.
+
 ## Phase 4 — Ticket-04 "Bình minh: phát hành v1.0.0" (Contract v1.3)
 
 Luật, số liệu và đầu ra headless **không đổi** so với v1.2.

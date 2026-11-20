@@ -40,6 +40,9 @@ node serve.js    # rồi mở http://localhost:8080
 
 **Luật chính:** đèn mới thắp có 100 dầu, hao 1/giây; dưới 30 thì nhấp nháy, mất vùng an toàn và thu hút Bóng Mực tới hút 5/giây. Hết dầu đèn tắt nhưng nhớ đã từng sáng. Sức chứa đom đóm = 10 + 2 × số lần thắp thành công (tối đa 20). Điểm: +5 mỗi đom đóm nạp/châm, +100 thắp lần đầu, +40 thắp lại, +5 mỗi Bóng Mực trúng Tỏa Sáng (+15 nếu đang hút dầu); thắng thì thêm (50 + phần nguyên của dầu) mỗi đèn sáng và 50 mỗi ngọn lửa còn lại.
 
+## Chọn đêm
+Từ menu bấm **Chọn đêm** để chơi riêng Đêm 1, 2 hoặc 3 (thử nhanh một bản đồ hay luyện tay). Chế độ này không ghi vào bảng xếp hạng; chơi xong có thể chơi lại đêm đó hoặc chọn đêm khác. **Bắt đầu** vẫn là 3 đêm liên tiếp, có tổng điểm, màn Bình Minh và bảng xếp hạng.
+
 ## Bảng xếp hạng
 Sau màn Bình Minh (thắng Đêm 3) hoặc sau khi thua ở bất kỳ Đêm nào, nhập tên (3–12 ký tự: chữ cái, có dấu được, số, `_`) để lưu điểm. Top 10, điểm giảm dần, bằng điểm thì ai đạt trước đứng trên. Lưu trên đĩa tại `data/leaderboard.json` (qua `serve.js`), còn nguyên khi tắt mở lại; xem từ menu chính. Xuất ra file:
 

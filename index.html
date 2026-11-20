@@ -80,6 +80,8 @@
   .btn:hover, .btn:focus-visible { filter: brightness(1.12); outline: 3px solid #fff; outline-offset: 2px; }
   .btn.ghost { background: var(--ink); color: var(--text); border: 2px solid var(--edge); box-shadow: none; }
   .btn.small { min-width: 0; padding: 4px 14px; }
+  .btn.card { min-width: 22em; text-align: left; line-height: 1.4; }
+  .btn.card b { color: var(--gold); }
   .row { display: flex; align-items: center; gap: 14px; }
   .row label { min-width: 11.5em; text-align: left; }
   .row input[type=range] { width: 9em; accent-color: var(--lamp); }
@@ -125,7 +127,8 @@
 <div id="menu" class="screen on">
   <h1>Đảo Đèn Lồng</h1>
   <p class="quote">Sương đen đã nuốt hết ánh sáng. Chỉ Mây, đứa trẻ giữ đèn, mới thắp lại được.</p>
-  <button class="btn" id="btnStart">Bắt đầu</button>
+  <button class="btn" id="btnStart">Bắt đầu (3 đêm liên tiếp)</button>
+  <button class="btn ghost" id="btnSelect">Chọn đêm</button>
   <button class="btn ghost" id="btnBoard">Bảng xếp hạng</button>
   <button class="btn ghost" id="btnSettings">Cài đặt</button>
   <p class="hint" id="menuHint"></p>
@@ -165,6 +168,14 @@
   <p class="hint">Độ nhạy áp dụng khi kéo chuột phải để xoay camera. Phím cố định: ← → hoặc Z C xoay camera, P tạm dừng, H hiện/ẩn trợ giúp. Mọi cài đặt được lưu.</p>
   <button class="btn" id="btnSettingsBack">Quay lại</button>
 </div>
+<div id="select" class="screen">
+  <h2>Chọn đêm</h2>
+  <p class="hint">Chơi riêng một đêm bất kỳ. Điểm của chế độ này không ghi vào bảng xếp hạng.</p>
+  <button class="btn ghost card" id="btnNight1"><b>Đêm 1 · Đảo Bến</b><br>5 đèn · 240 giây · cần giữ 3/5 đèn sáng</button>
+  <button class="btn ghost card" id="btnNight2"><b>Đêm 2 · Đảo Cau</b><br>6 đèn · 270 giây · cần giữ 4/6 đèn · cầu tre, Gió Lạc</button>
+  <button class="btn ghost card" id="btnNight3"><b>Đêm 3 · Đảo Chuông</b><br>7 đèn · 300 giây · cần giữ 5/7 đèn · 3 tầng, gió mạnh</button>
+  <button class="btn" id="btnSelectBack">Quay lại</button>
+</div>
 <div id="board" class="screen">
   <h2>Bảng xếp hạng</h2>
   <table class="board" id="boardTable"><thead><tr><th class="num">#</th><th>Tên</th><th class="num">Điểm</th><th class="num">Đêm thắng</th><th>Ngày</th></tr></thead><tbody id="boardRows"></tbody></table>
@@ -178,6 +189,7 @@
   <p id="resTotal" class="hint"></p>
   <div id="resSlot"></div>
   <button class="btn" id="btnNext"></button>
+  <button class="btn ghost" id="btnResSelect">Chọn đêm khác</button>
   <button class="btn ghost" id="btnResMenu">Về menu</button>
 </div>
 <div id="dawn" class="screen">
