@@ -142,42 +142,52 @@ function decorate(root, def, glow) {
     const blades = []; // [x, h, z, huong] - co non moc quanh cum nam / da
     const addBlades = (x, h, z, n, r) => { for (let i = 0; i < n; i++) { const a = rnd() * Math.PI * 2, rr = r * (0.35 + rnd() * 0.75); blades.push([x + Math.cos(a) * rr, h, z + Math.sin(a) * rr, a]); } };
 
-    // ---- Bui cay: nhieu la hon, to hon, mau tuoi hon, vai mang la sang
+    // ---- Bui cay kieu tranh ve phang: cac cum tron xanh o-liu -> vang chanh xep tang, hoa vang nho (mot so tren cuong manh)
     {
       const spots = pts(def.id === 2 ? 16 : 14, 4);
-      const lf = new THREE.Shape();
-      lf.moveTo(0, 0); lf.quadraticCurveTo(0.55, 0.45, 0, 1.2); lf.quadraticCurveTo(-0.55, 0.45, 0, 0);
-      const leafGeo = new THREE.ShapeGeometry(lf, 5); leafGeo.translate(0, -0.45, 0);
-      const LEAVES = 260;
-      const leaves = inst(leafGeo, new THREE.MeshStandardMaterial({ roughness: 1, side: THREE.DoubleSide, emissive: 0x3a7a42 }), spots.length * LEAVES);
-      const bases = inst(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: 0x2b6b4a, roughness: 1, flatShading: true, emissive: 0x0f2a1c }), spots.length * 3);
-      const dark = new THREE.Color(0x2f7a58), mid = new THREE.Color(0x5cb85a), light = new THREE.Color(0xd0f272);
-      let li = 0, bi = 0;
+      const NB = 15, FL = 17;
+      const blobs = inst(new THREE.IcosahedronGeometry(1, 2), new THREE.MeshStandardMaterial({ roughness: 1, emissive: 0x2c3c12 }), spots.length * NB);
+      const petals = inst(new THREE.SphereGeometry(1, 6, 4), new THREE.MeshStandardMaterial({ color: 0xffd53a, roughness: 0.8, emissive: 0x6a4c00 }), spots.length * FL * 5);
+      const centers = inst(new THREE.SphereGeometry(1, 6, 5), new THREE.MeshStandardMaterial({ color: 0xe8861c, roughness: 0.8, emissive: 0x4a2200 }), spots.length * FL);
+      const stemGeo = new THREE.CylinderGeometry(0.013, 0.016, 1, 4); stemGeo.translate(0, 0.5, 0);
+      const stems = inst(stemGeo, new THREE.MeshStandardMaterial({ color: 0x5a9a3a, roughness: 1, emissive: 0x143a10 }), spots.length * FL);
+      const dark = new THREE.Color(0x2f4a1c), mid = new THREE.Color(0x628a2a), light = new THREE.Color(0xc4d43e);
+      const m1 = new THREE.Matrix4(), m2 = new THREE.Matrix4(), unit = new THREE.Vector3(1, 1, 1), fp = new THREE.Vector3(), lp = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+      let bi = 0, pi = 0, ci = 0, ti = 0;
       for (const [x, h, z] of spots) {
-        const R = 1.3 + rnd() * 1.0, Hh = R * (0.6 + rnd() * 0.2);
-        for (let k = 0; k < 3; k++) {
-          const a0 = rnd() * Math.PI * 2, r = k === 0 ? 0 : R * 0.4;
-          pp.set(x + Math.cos(a0) * r, h + Hh * 0.3, z + Math.sin(a0) * r);
-          qa.identity(); sc.set(R * (0.62 + rnd() * 0.1), Hh * 0.5, R * (0.6 + rnd() * 0.1));
-          m.compose(pp, qa, sc); bases.setMatrixAt(bi++, m);
+        const R = 1.2 + rnd() * 0.9, Hh = R * 0.78;
+        for (let i = 0; i < NB; i++) { // cum tron: giua cao va toi, ria thap va sang
+          const ang = rnd() * Math.PI * 2, d = R * 0.82 * Math.sqrt(rnd());
+          const rb = R * (0.3 + rnd() * 0.24);
+          pp.set(x + Math.cos(ang) * d, h + rb * 0.55 + (1 - d / R) * Hh * 0.55, z + Math.sin(ang) * d);
+          qa.setFromAxisAngle(Yv, rnd() * Math.PI * 2);
+          m.compose(pp, qa, sc.set(rb, rb * 0.82, rb)); blobs.setMatrixAt(bi, m);
+          const t = smooth(0.1, 0.9, d / R + (rnd() - 0.5) * 0.7);
+          col.copy(dark).lerp(mid, smooth(0, 0.55, t)).lerp(light, smooth(0.5, 1, t));
+          blobs.setColorAt(bi++, col);
         }
-        const clumps = Array.from({ length: 4 }, () => { const th = rnd() * Math.PI * 2, ph = Math.acos(1 - rnd() * 0.85); return new THREE.Vector3(Math.sin(ph) * Math.cos(th), Math.cos(ph), Math.sin(ph) * Math.sin(th)); });
-        for (let i = 0; i < LEAVES; i++) {
-          const th = rnd() * Math.PI * 2, ph = Math.acos(1 - rnd() * 0.98);
-          const d = new THREE.Vector3(Math.sin(ph) * Math.cos(th), Math.cos(ph), Math.sin(ph) * Math.sin(th));
-          pp.set(x + d.x * R * 0.98, h + d.y * Hh * 1.02 + 0.08, z + d.z * R * 0.98);
-          nrm.set(d.x / R, d.y / Hh, d.z / R).normalize();
-          qa.setFromUnitVectors(Z, nrm); qb.setFromAxisAngle(Z, rnd() * Math.PI * 2); qa.multiply(qb);
-          const s = (0.42 + rnd() * 0.36) * (0.8 + 0.4 * d.y);
-          sc.set(s, s * (1 + rnd() * 0.3), s);
-          m.compose(pp, qa, sc); leaves.setMatrixAt(li, m);
-          let f = 0; for (const c of clumps) f = Math.max(f, smooth(0.74, 0.96, d.dot(c)));
-          const t = d.y * 0.85 + (rnd() - 0.5) * 0.3 + f * 0.5;
-          col.copy(dark).lerp(mid, smooth(0.05, 0.55, t)).lerp(light, smooth(0.5, 1.0, t));
-          leaves.setColorAt(li++, col);
+        for (let i = 0; i < FL; i++) { // hoa vang
+          const stem = rnd() < 0.35;
+          const ang = rnd() * Math.PI * 2, d = R * (stem ? 0.35 + rnd() * 0.55 : 0.1 + rnd() * 0.7);
+          const baseY = h + Hh * (1 - (d / R) * (d / R) * 0.55) + 0.05;
+          const top = stem ? 0.3 + rnd() * 0.35 : 0.03;
+          fp.set(x + Math.cos(ang) * d, baseY + top, z + Math.sin(ang) * d);
+          nrm.set(Math.cos(ang) * 0.25, 1, Math.sin(ang) * 0.25).normalize();
+          qa.setFromUnitVectors(Z, nrm);
+          const fs = 1.25 + rnd() * 0.7;
+          if (stem) { m.compose(pp.set(fp.x, baseY - 0.05, fp.z), qb.identity(), sc.set(1, top + 0.05, 1)); stems.setMatrixAt(ti++, m); }
+          m1.compose(fp, qa, unit);
+          for (let k = 0; k < 5; k++) {
+            const th = (k / 5) * Math.PI * 2 + rnd() * 0.2;
+            m2.compose(lp.set(0.085 * Math.cos(th) * fs, 0.085 * Math.sin(th) * fs, 0), qb.identity(), sc.set(0.075 * fs, 0.075 * fs, 0.03 * fs));
+            petals.setMatrixAt(pi++, m1.clone().multiply(m2));
+          }
+          m2.compose(lp.set(0, 0, 0.012), qb.identity(), sc.setScalar(0.05 * fs));
+          centers.setMatrixAt(ci++, m1.clone().multiply(m2));
         }
       }
-      root.add(bases, leaves);
+      stems.count = ti;
+      root.add(blobs, petals, centers, stems);
     }
 
     // ---- Nam: do, cham trang, chan kem; moi cum 1 cay to + 1 cay nho + co non
@@ -209,7 +219,7 @@ function decorate(root, def, glow) {
           nrm.set(dx / R, dy / (R * 0.72), dz / R).normalize();
           qa.setFromUnitVectors(Z, nrm);
           pp.set(x + dx * R * 1.01, capY + dy * R * 0.72 * 1.01, z + dz * R * 1.01);
-          m.compose(pp, qa, sc.set((0.06 + rnd() * 0.07) * s * 1.6, (0.06 + rnd() * 0.07) * s * 1.6, 1)); spots.setMatrixAt(pi++, m);
+          m.compose(pp, qa, sc.set((0.05 + rnd() * 0.05) * s, (0.05 + rnd() * 0.05) * s, 1)); spots.setMatrixAt(pi++, m);
         }
       };
       for (const [x, h, z] of clusters) {

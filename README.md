@@ -72,7 +72,7 @@ node soak.js --seed 7 --nights 10 --out soak.json           # soak test 10 Đêm
 - `AGENTS.md`, `.claude/skills/` — harness cho agent AI.
 
 ## Sáng tạo của tôi
-Chỉ nằm ở lớp hiển thị và tiện ích; luật và đầu ra headless không đổi. Điều khiển bằng chuột; Mây váy hồng, áo kem, khăn đỏ, nón lá có đèn lồng nhỏ; đèn lồng khung sườn có tua; đom đóm hình sao; bụi lá xếp lớp, cây dừa, cây cau, hoa, đèn giấy treo; lời Ông Đăng; tia tím nối Bóng Mực với đèn bị hút; tự tạm dừng khi rời tab. Các phần này tắt trong cảnh benchmark.
+Chỉ nằm ở lớp hiển thị và tiện ích; luật và đầu ra headless không đổi. Điều khiển bằng chuột; Mây váy hồng, áo kem, khăn đỏ, nón lá có đèn lồng nhỏ; đèn lồng khung sườn có tua; đom đóm hình sao; bụi cây vẽ phẳng có hoa vàng, nấm đỏ chấm trắng, đá góc cạnh, cây dừa, cây cau, hoa, đèn giấy treo; lời Ông Đăng; tia tím nối Bóng Mực với đèn bị hút; tự tạm dừng khi rời tab. Các phần này tắt trong cảnh benchmark.
 
 ## Tài liệu theo phase
 [ADR](docs/adr/) · Spec: [P2](docs/spec/phase-2.md) [P3](docs/spec/phase-3.md) [P4](docs/spec/phase-4.md) · Giả định: [P1](docs/notes/phase-1.md) [P2](docs/notes/phase-2.md) [P3](docs/notes/phase-3.md) [P4](docs/notes/phase-4.md) · Bằng chứng: [P1](docs/proof/phase-1.md) [P2](docs/proof/phase-2.md) [P3](docs/proof/phase-3.md) [P4](docs/proof/phase-4.md) · [Retro](docs/retro.md)
