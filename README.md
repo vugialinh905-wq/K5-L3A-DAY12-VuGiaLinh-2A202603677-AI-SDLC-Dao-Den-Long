@@ -5,18 +5,18 @@
 
 ---
 
-## Đảo Đèn Lồng — bản game (Phase 1)
+## Đảo Đèn Lồng — bản game (Phase 2, Test Contract v1.1)
 
 > Video demo: _(bổ sung ở Phase 4)_
 
-Mây, người giữ đèn nhỏ tuổi, gom đom đóm, nạp ánh sáng vào 5 Đèn Lồng Lớn và né Bóng Mực trong sương đen. Thắp hết đèn thì thắng, hết 3 ngọn lửa hoặc hết giờ (bình minh) thì thua.
+Mây, người giữ đèn nhỏ tuổi, gom đom đóm, nạp ánh sáng vào các Đèn Lồng Lớn và né Bóng Mực trong sương đen qua **3 Đêm**: Đảo Bến (5 đèn), Đảo Cau (2 đảo nối bằng cầu tre, bục nhảy, 6 đèn) và Đảo Chuông (3 tầng, dốc, gió mạnh, 7 đèn). Thắp hết đèn thì thắng, hết 3 ngọn lửa hoặc hết giờ (bình minh) thì thua. Thắng Đêm 3 thì tới màn Bình Minh với tổng điểm.
 
 ### Cài đặt và chạy (cần Node ≥ 18)
 
 ```bash
 npm install          # không có phụ thuộc, chỉ để khớp build_cmd
 node serve.js        # mở http://localhost:8080 (Three.js nạp qua CDN, cần mạng)
-npm test             # 16 test headless
+npm test             # 40 test headless
 ```
 
 ### Điều khiển
@@ -25,37 +25,39 @@ npm test             # 16 test headless
 |---|---|
 | Giữ chuột trái | Đi về phía con trỏ (gần con trỏ thì chậm lại) |
 | W A S D | Di chuyển (theo hướng camera; ưu tiên hơn chuột) |
-| Space | Nhảy |
-| E | Nạp ánh sáng vào đèn gần nhất (trong `interact_radius`) |
-| F | Tỏa sáng: làm choáng và đẩy lùi Bóng Mực, tốn 1 đom đóm |
-| ← → hoặc Z C | Xoay camera |
-| R | Chơi lại (sau khi thắng/thua) |
+| Space | Nhảy (chỉ khi chạm đất) |
+| Shift | Lướt 14 m/s trong 0.2 s, hồi 1.5 s (hướng đang đi, đứng yên thì hướng mặt) |
+| E | Nạp ánh sáng vào đèn gần nhất (trong 2 m) |
+| F | Tỏa Sáng: tốn 3 đom đóm, làm choáng và đẩy lùi Bóng Mực trong 5 m, hồi 3 s |
+| Chuột phải kéo, ← → hoặc Z C | Xoay camera (độ nhạy chỉnh trong Cài đặt) |
+| Esc hoặc P | Tạm dừng (Tiếp tục / Chơi lại Đêm / Cài đặt / Về menu) |
+
+Gió Lạc (Đêm 2, 3) cuỗm đom đóm của người mang ≥ 5: tỏa sáng để đuổi hoặc đòi lại. Bùa Gió (lá bùa đỏ viền vàng) cho chạy 7.2 m/s và lướt không hồi chiêu trong 10 s.
 
 ### Cách tính điểm
-+10 mỗi đom đóm nhặt · +100 mỗi đèn thắp · +20 mỗi Bóng Mực bị làm choáng · khi thắng: +1 mỗi giây còn lại (làm tròn xuống) và +50 mỗi ngọn lửa còn lại.
++10 mỗi đom đóm nạp vào đèn · +100 mỗi đèn thắp · +5 mỗi Bóng Mực trúng Tỏa Sáng · khi thắng một Đêm: +2 mỗi giây còn lại (làm tròn xuống) và +50 mỗi ngọn lửa còn lại. Tổng điểm game là tổng điểm các Đêm đã thắng.
 
-### Chế độ headless (Test Contract v1.0)
+### Chế độ headless (Test Contract v1.1)
 
 ```bash
-node src/headless.js --seed 1 --night 1 --ticks 600 --out out.jsonl \
-     [--scenario s.json] [--inputs i.json] [--snapshot-every 10]
+node src/headless.js --seed 1 --night 1 --ticks 600 --out out.jsonl      [--scenario s.json] [--inputs i.json] [--snapshot-every 10]     # --night 1, 2 hoặc 3
 ```
 
-Cấu hình khai báo trong [game.contract.json](game.contract.json) và được test khớp với số liệu thật trong `src/core.js`. Mọi khái niệm của contract đều có trong game nên không trường `tuning` nào là `null` (`fall_enabled` = `false`: không có phạt rơi khỏi đảo, người chơi bị giữ trong đảo).
+Cấu hình khai báo trong [game.contract.json](game.contract.json) (`contract_version` "1.1") và được test khớp với số liệu thật trong `src/core.js`. Mọi khái niệm của contract đều có trong game nên không trường `tuning` nào là `null`; `fall_enabled` = `true` (rơi khỏi đảo bị phạt theo ticket). Một Đêm đầy đủ (21 600 tick) chạy headless trong khoảng 0.2 s.
 
 ### Cấu trúc
-- `src/core.js` — lõi logic thuần (không DOM/GPU), dùng chung cho headless và web.
+- `src/core.js` — lõi logic thuần (không DOM/GPU), bản đồ và số liệu chuẩn, dùng chung cho headless và web.
 - `src/headless.js` — CLI theo Test Contract.
-- `src/main.js`, `index.html` — hiển thị 3D bằng Three.js.
-- `tests/headless.test.js` — scenario kiểm chứng. Ghi chú, giả định: [docs/notes/phase-1.md](docs/notes/phase-1.md). Bằng chứng: [docs/proof/phase-1.md](docs/proof/phase-1.md).
-- `AGENTS.md` — harness cho agent AI.
+- `src/main.js`, `src/world.js`, `src/audio.js`, `index.html` — hiển thị 3D, âm thanh, menu và HUD.
+- `tests/headless.test.js` — scenario kiểm chứng cho từng tính năng.
+- Tài liệu: spec và tiêu chí nghiệm thu [docs/spec/phase-2.md](docs/spec/phase-2.md); giả định [docs/notes/phase-2.md](docs/notes/phase-2.md); bằng chứng [docs/proof/phase-2.md](docs/proof/phase-2.md). Phase 1: [notes](docs/notes/phase-1.md), [proof](docs/proof/phase-1.md).
+- `AGENTS.md`, `.claude/skills/` — harness cho agent AI.
 
 ### Sáng tạo của tôi
-Toàn bộ phần này chỉ nằm ở lớp hiển thị (`src/main.js`, `index.html`); lõi `src/core.js` và chế độ headless không đổi, 16 test vẫn xanh.
-- Điều khiển bằng chuột: giữ chuột trái để đi về phía con trỏ.
-- HUD lớn hơn: thanh ngọn lửa, ô đom đóm, 5 đèn lồng sáng dần, thanh thời gian, điểm lớn, nút hồi chiêu tỏa sáng, màn thắng/thua có tóm tắt.
-- Đom đóm hình ngôi sao xoay, có quầng sáng.
-- Cảnh đảo: bụi cây, hoa nhỏ, đèn lồng giấy treo lơ lửng (sáng dần khi thắp thêm đèn).
+Toàn bộ phần này chỉ nằm ở lớp hiển thị; lõi `src/core.js` và đầu ra headless không bị đổi (40 test vẫn xanh).
+- Điều khiển bằng chuột: giữ chuột trái để đi về phía con trỏ, kéo chuột phải để xoay camera.
+- Đom đóm hình ngôi sao xoay có quầng sáng; bụi cây, hoa nhỏ, cây cau, đèn lồng giấy treo lơ lửng sáng dần khi thắp thêm đèn.
+- Lời Ông Đăng ở mỗi màn giới thiệu Đêm, thông báo nhanh khi có sự kiện, viền đỏ khi bị đánh, lá bay báo gió.
 
 ---
 

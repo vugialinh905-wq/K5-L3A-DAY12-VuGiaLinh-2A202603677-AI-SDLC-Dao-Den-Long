@@ -361,18 +361,21 @@ test('Dem 3: thap chuong chan duong, mat do cao tang theo thang may', () => {
   assert.equal(last(r).player.pos[1], 6);
 });
 
-test('Gio manh (Dem 3): bao truoc 2 s, 5 s moi 30 s, day 2 m/s', () => {
-  const r = run({ night: 3, scenario: { ...Q, time_left_s: 600, wind_enabled: true }, ticks: 2200, every: 50 });
+test('Gio manh (Dem 3): bao truoc 2 s, 5 s moi 30 s, day 2 m/s dung huong dir_deg', () => {
+  const r = run({ night: 3, scenario: { ...Q, time_left_s: 600, wind_enabled: true, player: { pos: [0, 0, -30] } }, ticks: 2200, every: 50 });
   assert.equal(snapAt(r, 1700).wind.active, false);
   assert.equal(snapAt(r, 1800).wind.active, true);
   assert.equal(snapAt(r, 2050).wind.active, true);
   assert.equal(snapAt(r, 2100).wind.active, false);
   const p0 = snapAt(r, 1750).player.pos, p1 = snapAt(r, 2100).player.pos;
-  assert.ok(near(Math.hypot(p1[0] - p0[0], p1[2] - p0[2]), 10, 0.2) || true);
+  const dx = p1[0] - p0[0], dz = p1[2] - p0[2];
+  assert.ok(near(Math.hypot(dx, dz), 10, 0.2), 'quang duong ' + Math.hypot(dx, dz)); // 2 m/s x 5 s
   const d = snapAt(r, 2000).wind.dir_deg;
   assert.ok(d >= 0 && d < 360);
+  assert.ok(near(dx / 10, Math.cos((d * Math.PI) / 180), 0.03) && near(dz / 10, Math.sin((d * Math.PI) / 180), 0.03));
   const off = run({ night: 3, scenario: { ...Q, time_left_s: 600, wind_enabled: false }, ticks: 2200, every: 2200 });
   assert.equal(snapAt(off, 2200).wind.active, false);
+  assert.deepEqual(snapAt(off, 2200).player.pos, [0, 0, -14]);
 });
 
 test('Gio Lac: duoi khi mang >= 5 va cach <= 15 m, cuop min(3, mang), bay di 240 tick roi bien mat cung do cuop', () => {
