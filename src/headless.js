@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Che do headless theo Test Contract v1.0.
-// node src/headless.js --seed 1 --night 1 [--scenario f.json] [--inputs f.json] --ticks N --out o.jsonl [--snapshot-every 10]
+// Che do headless theo Test Contract v1.1.
+// node src/headless.js --seed 1 --night 1|2|3 [--scenario f.json] [--inputs f.json] --ticks N --out o.jsonl [--snapshot-every 10]
 import fs from 'node:fs';
 import { createGame, step, snapshot, drainEvents, makeInputFeeder, validateInputs, ContractError } from './core.js';
 
@@ -36,7 +36,7 @@ const seed = intArg(args.seed, 'seed', 1);
 const night = intArg(args.night, 'night', 1);
 const ticks = intArg(args.ticks, 'ticks');
 const every = intArg(args['snapshot-every'], 'snapshot-every', 10);
-if (night !== 1) fail(1, 'Phase 1 chi ho tro --night 1');
+if (![1, 2, 3].includes(night)) fail(1, '--night phai la 1, 2 hoac 3');
 if (ticks < 0) fail(1, '--ticks phai >= 0');
 if (every < 1) fail(1, '--snapshot-every phai >= 1');
 if (!args.out) fail(1, 'thieu --out');
@@ -49,7 +49,7 @@ if (args.inputs) inputs = readJson(args.inputs, 'inputs');
 let game;
 try {
   validateInputs(inputs);
-  game = createGame({ seed, scenario });
+  game = createGame({ seed, night, scenario });
 } catch (e) {
   if (e instanceof ContractError) fail(2, 'dau vao sai dinh dang: ' + e.message);
   throw e;
@@ -59,6 +59,7 @@ const feed = makeInputFeeder(inputs);
 const lines = [];
 const push = (o) => lines.push(JSON.stringify(o));
 push(snapshot(game)); // tick 0: sau khi dung scenario, truoc input
+push({ type: 'event', tick: 0, name: 'night_start', data: { night } });
 
 let lastSnap = 0;
 for (let k = 0; k < ticks && game.state === 'playing'; k++) {
