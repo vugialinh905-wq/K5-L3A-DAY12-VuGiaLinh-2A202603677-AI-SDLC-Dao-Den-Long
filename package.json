@@ -9,7 +9,8 @@
     "headless": "node src/headless.js",
     "test": "node --test tests/*.test.js",
     "bench": "node bench.js --seed 42 --duration 30 --out bench.json",
-    "soak": "node soak.js --seed 7 --nights 10 --out soak.json"
+    "soak": "node soak.js --seed 7 --nights 10 --out soak.json",
+    "release": "node scripts/make-release.mjs"
   },
   "engines": {
     "node": ">=18"
