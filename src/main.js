@@ -952,3 +952,4 @@ document.addEventListener('visibilitychange', () => {
   } else audio.resumeAudio();
 });
 addEventListener('pagehide', () => { audio.stopMusic(); audio.suspendAudio(); });
+window.__scene = () => scene; // de kiem tra / chup man hinh
