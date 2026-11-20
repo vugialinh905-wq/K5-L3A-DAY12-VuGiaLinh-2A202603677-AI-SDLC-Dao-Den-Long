@@ -57,6 +57,7 @@ export const sfx = {
   steal() { noise(0.35, { vol: 0.3, freq: 3000, to: 800, q: 2 }); },
   ui() { tone(600, 0.08, { vol: 0.15 }); },
   wind() { noise(1.8, { vol: 0.18, freq: 500, to: 1500, q: 0.5 }); },
+  out() { tone(330, 0.6, { vol: 0.3, to: 110, type: 'triangle' }); noise(0.3, { vol: 0.15, freq: 600 }); },
 };
 
 // Nhac nen: be (pad) cham theo hop am + chuong don le ngau nhien (am giai ngu cung)

@@ -25,7 +25,14 @@
   #right { top: 14px; right: 14px; text-align: right; }
   #lanternCount { font-size: 22px; font-variant-numeric: tabular-nums; }
   #scoreVal { font-size: 38px; font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums; line-height: 1.05; }
-  #motebar { bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; gap: 7px; }
+  #motebar { bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; gap: 12px; align-items: center; }
+  #pips { display: flex; gap: 7px; flex-wrap: wrap; max-width: 560px; }
+  #capText { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--core); min-width: 56px; text-align: right; }
+  #goal { font-size: 13px; opacity: .85; margin-top: 2px; }
+  #goal.bad { color: var(--danger); opacity: 1; }
+  body.cb { --danger: #FFFFFF; }
+  body.cb #flash { background: radial-gradient(circle, transparent 40%, rgba(255, 255, 255, .6)); }
+  .row input[type=checkbox] { width: 24px; height: 24px; }
   .pip { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--edge); background: rgba(255, 255, 255, .05); transition: all .2s; }
   .pip.on { background: radial-gradient(circle, #FFF6C2 0%, #FFE58A 55%, var(--lamp) 100%); box-shadow: 0 0 12px #FFE58A; border-color: #FFF6C2; }
   #cds { bottom: 14px; right: 14px; display: flex; gap: 12px; }
@@ -67,9 +74,9 @@
 <body>
 <div id="hud">
   <div id="left" class="hud panel"><div class="label">Ngọn lửa</div><div id="flames"></div></div>
-  <div id="center" class="hud panel"><div class="label">Bình minh sau</div><div id="time">5:00</div></div>
+  <div id="center" class="hud panel"><div class="label">Bình minh sau</div><div id="time">4:00</div><div id="goal"></div></div>
   <div id="right" class="hud panel"><div class="label">Đèn lồng <span id="lanternCount"></span></div><div id="scoreVal">0</div></div>
-  <div id="motebar" class="hud panel"></div>
+  <div id="motebar" class="hud panel"><div id="pips"></div><span id="capText"></span></div>
   <div id="cds" class="hud">
     <div class="cd" id="cdDash"><span><b>⚡</b>Lướt · Shift</span></div>
     <div class="cd" id="cdPulse"><span><b>✨</b>Tỏa sáng · F</span></div>
@@ -110,7 +117,8 @@
   <h2>Cài đặt</h2>
   <div class="row"><label for="vol">Âm lượng</label><input id="vol" type="range" min="0" max="100" step="1"><span id="volVal"></span></div>
   <div class="row"><label for="sens">Độ nhạy chuột</label><input id="sens" type="range" min="30" max="250" step="5"><span id="sensVal"></span></div>
-  <p style="font-size:14px;opacity:.7">Độ nhạy áp dụng khi kéo chuột phải để xoay camera. Cài đặt được lưu lại.</p>
+  <div class="row"><label for="cb">Bảng màu dễ phân biệt</label><input id="cb" type="checkbox"></div>
+  <p style="font-size:14px;opacity:.7">Độ nhạy áp dụng khi kéo chuột phải để xoay camera. Bảng màu dễ phân biệt đổi viền Bóng Mực sang xanh dương, cảnh báo sang trắng kèm ⚠, và đèn tắt bị xẹp có vết rách. Cài đặt được lưu lại.</p>
   <button class="btn" id="btnSettingsBack">Quay lại</button>
 </div>
 <div id="result" class="screen">

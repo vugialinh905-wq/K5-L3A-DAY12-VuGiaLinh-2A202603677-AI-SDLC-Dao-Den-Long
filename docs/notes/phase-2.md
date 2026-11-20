@@ -1,5 +1,7 @@
 # Phase 2 — giả định và nhật ký AI
 
+> Một số giả định dưới đây (mục 4 về `wander`, 7 về vùng an toàn) đã được Ticket-03 điều chỉnh; xem [phase-3.md](phase-3.md).
+
 Ticket-02 viết rất chi tiết nên giả định chỉ nằm ở những chỗ ticket không nói. Mỗi giả định có test khóa lại (trừ khi ghi khác).
 
 ## Giả định

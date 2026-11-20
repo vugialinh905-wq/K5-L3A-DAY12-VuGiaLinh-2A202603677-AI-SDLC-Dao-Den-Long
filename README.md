@@ -5,19 +5,21 @@
 
 ---
 
-## Đảo Đèn Lồng — bản game (Phase 2, Test Contract v1.1)
+## Đảo Đèn Lồng — bản game (Phase 3, Test Contract v1.2)
 
 > Video demo: _(bổ sung ở Phase 4)_
 
-Mây, người giữ đèn nhỏ tuổi, gom đom đóm, nạp ánh sáng vào các Đèn Lồng Lớn và né Bóng Mực trong sương đen qua **3 Đêm**: Đảo Bến (5 đèn), Đảo Cau (2 đảo nối bằng cầu tre, bục nhảy, 6 đèn) và Đảo Chuông (3 tầng, dốc, gió mạnh, 7 đèn). Thắp hết đèn thì thắng, hết 3 ngọn lửa hoặc hết giờ (bình minh) thì thua. Thắng Đêm 3 thì tới màn Bình Minh với tổng điểm.
+Mây, người giữ đèn nhỏ tuổi, gom đom đóm, thắp các Đèn Lồng Lớn và **giữ chúng sáng tới bình minh** qua **3 Đêm**: Đảo Bến (5 đèn, 240 s), Đảo Cau (2 đảo nối bằng cầu tre, bục nhảy, 6 đèn, 270 s) và Đảo Chuông (3 tầng, dốc, gió mạnh, 7 đèn, 300 s). Đèn có **nhiên liệu** (100, hao 1/giây) và có thể tắt; Bóng Mực hút dầu những đèn yếu. Thắng một Đêm khi còn sống lúc bình minh và còn ít nhất 60% số đèn sáng (3/5, 4/6, 5/7); hết 3 ngọn lửa thì thua ngay. Thắng Đêm 3 thì tới màn Bình Minh với tổng điểm.
 
 ### Cài đặt và chạy (cần Node ≥ 18)
 
 ```bash
 npm install          # không có phụ thuộc, chỉ để khớp build_cmd
 node serve.js        # mở http://localhost:8080 (Three.js nạp qua CDN, cần mạng)
-npm test             # 40 test headless
+npm test             # 59 test headless
 ```
+
+Đường tắt để thử nhanh một Đêm: `http://localhost:8080/?night=2`.
 
 ### Điều khiển
 
@@ -26,38 +28,44 @@ npm test             # 40 test headless
 | Giữ chuột trái | Đi về phía con trỏ (gần con trỏ thì chậm lại) |
 | W A S D | Di chuyển (theo hướng camera; ưu tiên hơn chuột) |
 | Space | Nhảy (chỉ khi chạm đất) |
-| Shift | Lướt 14 m/s trong 0.2 s, hồi 1.5 s (hướng đang đi, đứng yên thì hướng mặt) |
-| E | Nạp ánh sáng vào đèn gần nhất (trong 2 m) |
+| Shift | Lướt 14 m/s trong 0.2 s, hồi 1.5 s |
+| E | Gần đèn (≤ 2 m): đèn tắt thì nạp để **thắp** (10 đom đóm, thắp lại chỉ 5); đèn đang sáng thì **châm dầu** (mỗi đom đóm +10 dầu) |
 | F | Tỏa Sáng: tốn 3 đom đóm, làm choáng và đẩy lùi Bóng Mực trong 5 m, hồi 3 s |
 | Chuột phải kéo, ← → hoặc Z C | Xoay camera (độ nhạy chỉnh trong Cài đặt) |
 | Esc hoặc P | Tạm dừng (Tiếp tục / Chơi lại Đêm / Cài đặt / Về menu) |
 
-Gió Lạc (Đêm 2, 3) cuỗm đom đóm của người mang ≥ 5: tỏa sáng để đuổi hoặc đòi lại. Bùa Gió (lá bùa đỏ viền vàng) cho chạy 7.2 m/s và lướt không hồi chiêu trong 10 s.
+**Nhiên liệu:** đèn vừa thắp có 100, hao 1/giây. Đèn dưới 30 nhấp nháy, mất vùng an toàn và thu hút Bóng Mực tới hút 5/giây. Hết dầu đèn tắt, nhưng "nhớ" đã từng sáng nên thắp lại chỉ cần 5 đom đóm. **Sức chứa** đom đóm tăng dần: 10 + 2 mỗi lần thắp thành công, tối đa 20.
 
 ### Cách tính điểm
-+10 mỗi đom đóm nạp vào đèn · +100 mỗi đèn thắp · +5 mỗi Bóng Mực trúng Tỏa Sáng · khi thắng một Đêm: +2 mỗi giây còn lại (làm tròn xuống) và +50 mỗi ngọn lửa còn lại. Tổng điểm game là tổng điểm các Đêm đã thắng.
++5 mỗi đom đóm nạp hoặc châm · +100 thắp lần đầu · +40 thắp lại · +5 mỗi Bóng Mực trúng Tỏa Sáng (+15 nếu nó đang hút dầu) · khi thắng lúc bình minh: +(50 + phần nguyên của dầu) mỗi đèn đang sáng và +50 mỗi ngọn lửa còn lại. Không có thưởng thời gian. Tổng điểm game là tổng điểm các Đêm đã thắng.
 
-### Chế độ headless (Test Contract v1.1)
+### Cài đặt
+Âm lượng, độ nhạy chuột và **Bảng màu dễ phân biệt** (viền và mắt Bóng Mực xanh dương, cảnh báo màu trắng kèm ⚠, đèn tắt xẹp có vết rách). Mọi cài đặt được lưu giữa các lần mở.
+
+### Chế độ headless (Test Contract v1.2)
 
 ```bash
-node src/headless.js --seed 1 --night 1 --ticks 600 --out out.jsonl      [--scenario s.json] [--inputs i.json] [--snapshot-every 10]     # --night 1, 2 hoặc 3
+node src/headless.js --seed 1 --night 1 --ticks 600 --out out.jsonl \
+     [--scenario s.json] [--inputs i.json] [--snapshot-every 10]     # --night 1, 2 hoặc 3
 ```
 
-Cấu hình khai báo trong [game.contract.json](game.contract.json) (`contract_version` "1.1") và được test khớp với số liệu thật trong `src/core.js`. Mọi khái niệm của contract đều có trong game nên không trường `tuning` nào là `null`; `fall_enabled` = `true` (rơi khỏi đảo bị phạt theo ticket). Một Đêm đầy đủ (21 600 tick) chạy headless trong khoảng 0.2 s.
+Cấu hình khai báo trong [game.contract.json](game.contract.json) (`contract_version` "1.2") và được test khớp với số liệu thật trong `src/core.js`. Mọi khái niệm của contract đều có trong game nên không trường `tuning` nào là `null`. Một Đêm đầy đủ (21 600 tick) chạy headless trong khoảng 0.2 s.
 
 ### Cấu trúc
 - `src/core.js` — lõi logic thuần (không DOM/GPU), bản đồ và số liệu chuẩn, dùng chung cho headless và web.
 - `src/headless.js` — CLI theo Test Contract.
 - `src/main.js`, `src/world.js`, `src/audio.js`, `index.html` — hiển thị 3D, âm thanh, menu và HUD.
 - `tests/headless.test.js` — scenario kiểm chứng cho từng tính năng.
-- Tài liệu: spec và tiêu chí nghiệm thu [docs/spec/phase-2.md](docs/spec/phase-2.md); giả định [docs/notes/phase-2.md](docs/notes/phase-2.md); bằng chứng [docs/proof/phase-2.md](docs/proof/phase-2.md). Phase 1: [notes](docs/notes/phase-1.md), [proof](docs/proof/phase-1.md).
+- Quyết định thiết kế: [docs/adr/0001-den-can-dau-va-luat-thang.md](docs/adr/0001-den-can-dau-va-luat-thang.md). Thay đổi phá vỡ tương thích: [CHANGELOG.md](CHANGELOG.md).
+- Spec và tiêu chí nghiệm thu: [Phase 3](docs/spec/phase-3.md), [Phase 2](docs/spec/phase-2.md). Giả định: [Phase 3](docs/notes/phase-3.md), [Phase 2](docs/notes/phase-2.md), [Phase 1](docs/notes/phase-1.md). Bằng chứng: [Phase 3](docs/proof/phase-3.md), [Phase 2](docs/proof/phase-2.md), [Phase 1](docs/proof/phase-1.md).
 - `AGENTS.md`, `.claude/skills/` — harness cho agent AI.
 
 ### Sáng tạo của tôi
-Toàn bộ phần này chỉ nằm ở lớp hiển thị; lõi `src/core.js` và đầu ra headless không bị đổi (40 test vẫn xanh).
+Toàn bộ phần này chỉ nằm ở lớp hiển thị; lõi `src/core.js` và đầu ra headless không bị đổi (59 test vẫn xanh).
 - Điều khiển bằng chuột: giữ chuột trái để đi về phía con trỏ, kéo chuột phải để xoay camera.
-- Đom đóm hình ngôi sao xoay có quầng sáng; bụi cây, hoa nhỏ, cây cau, đèn lồng giấy treo lơ lửng sáng dần khi thắp thêm đèn.
-- Lời Ông Đăng ở mỗi màn giới thiệu Đêm, thông báo nhanh khi có sự kiện, viền đỏ khi bị đánh, lá bay báo gió.
+- Mây mặc váy hồng với áo kem và khăn đỏ (giữ màu chuẩn), nón lá có đèn lồng nhỏ; đèn lồng lớn có khung sườn, nắp gỗ, tua đỏ, treo xích và đung đưa.
+- Đom đóm hình ngôi sao xoay có quầng sáng; bụi cây, hoa, cỏ, cây cau, đèn lồng giấy treo lơ lửng.
+- Lời Ông Đăng ở mỗi màn giới thiệu Đêm, thông báo nhanh khi có sự kiện, viền đỏ khi bị đánh, lá bay báo gió, tia tím nối Bóng Mực với đèn đang bị hút, tự tạm dừng và tắt tiếng khi rời tab.
 
 ---
 

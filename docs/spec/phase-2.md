@@ -1,5 +1,7 @@
 # Spec Phase 2 — Ticket-02 "Ba hòn đảo" (Contract v1.1)
 
+> **Đã bị Ticket-03 thay thế một phần:** luật thắng, điểm, thời lượng Đêm, sức chứa, vùng an toàn và hành vi `wander` (mục A5–A7, A12–A13 ở dưới). Xem [spec Phase 3](phase-3.md) và [CHANGELOG](../../CHANGELOG.md). Test tương ứng đã được thay có lý do.
+
 Mỗi mục có tiêu chí nghiệm thu (AC) kiểm được, kèm test (`tests/headless.test.js`, tìm theo tên) hoặc cách kiểm thủ công trên bản web.
 
 ## A. Số liệu chuẩn (Phần 1)

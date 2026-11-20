@@ -37,15 +37,20 @@ const near = (a, b, eps = 0.05) => Math.abs(a - b) <= eps;
 const Q = { random_motes: false, random_shades: false, random_drifters: false, wind_enabled: false, motes: [], shades: [] };
 const press = (tick, key) => [{ tick, [key]: true }, { tick: tick + 1, [key]: false }];
 
-test('contract v1.1: tuning khop so chuan, co cac khoa moi', () => {
+// [Ticket-03] Doi ten + cap nhat: contract_version 1.2, 3 thoi luong moi, khoa nhien lieu, diem moi.
+test('contract v1.2: tuning khop so chuan, co cac khoa nhien lieu', () => {
   const c = JSON.parse(fs.readFileSync(path.join(root, 'game.contract.json'), 'utf8'));
-  assert.equal(c.contract_version, '1.1');
+  assert.equal(c.contract_version, '1.2');
   assert.deepEqual(c.tuning, JSON.parse(JSON.stringify(TUNING)));
-  for (const k of ['dash_speed', 'dash_duration_s', 'dash_cooldown_s', 'night2_duration_s', 'night3_duration_s']) assert.ok(k in c.tuning, k);
-  assert.equal(c.tuning.carry_capacity, 10);
-  assert.equal(c.tuning.lantern_cost, 10);
-  assert.equal(c.tuning.pulse_cost, 3);
-  assert.equal(c.tuning.score.per_second_left, 2);
+  const t = c.tuning;
+  assert.deepEqual([t.fuel_max, t.fuel_decay_per_s, t.fuel_per_mote, t.relight_cost, t.win_ratio, t.drain_per_s, t.low_fuel_threshold, t.capacity_max], [100, 1.0, 10, 5, 0.6, 5, 30, 20]);
+  assert.deepEqual([t.night1_duration_s, t.night2_duration_s, t.night3_duration_s], [240, 270, 300]);
+  assert.equal(t.carry_capacity, 10);
+  assert.equal(t.lantern_cost, 10);
+  assert.equal(t.pulse_cost, 3);
+  assert.equal(t.score.per_mote, 5);
+  assert.equal(t.score.per_relight, 40);
+  assert.equal(t.score.per_second_left, 0); // thuong thoi gian bi bo
 });
 
 test('snapshot tick 0: truong moi cua v1.1, 20 dom dom o 20 diem khac nhau, dong end', () => {
@@ -64,7 +69,7 @@ test('snapshot tick 0: truong moi cua v1.1, 20 dom dom o 20 diem khac nhau, dong
 });
 
 test('ban do chuan: so den, thoi luong, vi tri xuat phat, bua tung dem', () => {
-  const cnt = { 1: 5, 2: 6, 3: 7 }, dur = { 1: 300, 2: 330, 3: 360 };
+  const cnt = { 1: 5, 2: 6, 3: 7 }, dur = { 1: 240, 2: 270, 3: 300 }; // [Ticket-03] thoi luong moi
   for (const night of [1, 2, 3]) {
     const s = run({ night, ticks: 0 }).lines[0];
     assert.equal(s.lanterns.length, cnt[night]);
@@ -98,20 +103,26 @@ test('suc chua 10: mang du roi thi khong nhat them', () => {
   assert.equal(last(r).motes_active, 1);
 });
 
-test('nap anh sang: nap nhieu lan, den nho tien do, +10/dom dom +100/den', () => {
+// [Ticket-03] +5 diem/dom dom (truoc: +10); den thap lan dau van +100; den moi sang co fuel 100.
+test('nap anh sang: nap nhieu lan, den nho tien do, +5/dom dom, +100 thap lan dau, fuel 100', () => {
   const lan = [{ id: 'L1', pos: [0, 0, 1.5] }];
   const a = run({ scenario: { ...Q, lanterns: lan, player: { carried: 4 } }, inputs: { frames: press(0, 'interact') }, ticks: 5 });
   assert.deepEqual(events(a, 'deposit')[0].data, { lantern_id: 'L1', amount: 4, deposited: 4 });
   assert.equal(events(a, 'lantern_lit').length, 0);
-  assert.equal(end(a).score, 40);
+  assert.equal(end(a).score, 20);
   const b = run({ scenario: { ...Q, lanterns: [{ id: 'L1', pos: [0, 0, 1.5], deposited: 4 }], player: { carried: 9 } }, inputs: { frames: press(0, 'interact') }, ticks: 5 });
   assert.deepEqual(events(b, 'deposit')[0].data, { lantern_id: 'L1', amount: 6, deposited: 10 });
-  assert.equal(events(b, 'lantern_lit').length, 1);
+  assert.deepEqual(events(b, 'lantern_lit')[0].data, { lantern_id: 'L1', relight: false });
   assert.equal(last(b).player.carried, 3);
-  assert.equal(end(b).score, 60 + 100);
+  assert.equal(end(b).score, 30 + 100);
+  const l = last(b).lanterns[0];
+  assert.equal(l.lit, true); assert.equal(l.ever_lit, true); assert.equal(l.relit_count, 0);
+  assert.ok(l.fuel >= 99.9 && l.fuel <= 100);
+  assert.equal(last(b).player.capacity, 12); // 10 + 2 * 1 lan thap thanh cong
 });
 
-test('tuong tac: trong 2.0 m, den gan nhat, bang nhau thi id nho hon, chi den chua sang', () => {
+// [Ticket-03] Tuong tac gio xet ca den dang sang chua day dau (truoc: chi den chua sang).
+test('tuong tac: trong 2.0 m, chon den gan nhat nhan duoc, bang nhau thi id nho hon', () => {
   const far = run({ scenario: { ...Q, lanterns: [{ id: 'L1', pos: [0, 0, 2.2] }], player: { carried: 3 } }, inputs: { frames: press(0, 'interact') }, ticks: 3 });
   assert.equal(events(far, 'deposit').length, 0);
   const tie = run({
@@ -119,33 +130,62 @@ test('tuong tac: trong 2.0 m, den gan nhat, bang nhau thi id nho hon, chi den ch
     inputs: { frames: press(0, 'interact') }, ticks: 3,
   });
   assert.equal(events(tie, 'deposit')[0].data.lantern_id, 'L1');
-  const lit = run({
-    scenario: { ...Q, lanterns: [{ id: 'L1', pos: [0.5, 0, 0], lit: true }, { id: 'L2', pos: [1.8, 0, 0] }], player: { carried: 3 } },
+  // den sang dang hao dau (gan hon) duoc chon de chau dau, khong phai den tat o xa hon
+  const refuelNearest = run({
+    scenario: { ...Q, lanterns: [{ id: 'L1', pos: [0.5, 0, 0], lit: true, fuel: 50 }, { id: 'L2', pos: [1.8, 0, 0] }], player: { carried: 3 } },
     inputs: { frames: press(0, 'interact') }, ticks: 3,
   });
-  assert.equal(events(lit, 'deposit')[0].data.lantern_id, 'L2');
-});
-
-test('thang: diem = nap + den + floor(giay con lai)*2 + 50*lua; den lit san khong cong diem luc dung', () => {
-  const litOthers = ['L2', 'L3', 'L4', 'L5'].map((id) => ({ id, lit: true }));
-  const r = run({
-    scenario: { ...Q, player: { carried: 10 }, lanterns: [{ id: 'L1', pos: [0, 0, 1.5] }, ...litOthers] },
-    inputs: { frames: press(0, 'interact') }, ticks: 100,
+  assert.equal(events(refuelNearest, 'refuel').length, 1);
+  assert.equal(events(refuelNearest, 'refuel')[0].data.lantern_id, 'L1');
+  assert.equal(events(refuelNearest, 'deposit').length, 0);
+  // den tat gan hon den sang -> chon den tat
+  const nearUnlit = run({
+    scenario: { ...Q, lanterns: [{ id: 'L1', pos: [1.8, 0, 0], lit: true, fuel: 50 }, { id: 'L2', pos: [0.5, 0, 0] }], player: { carried: 3 } },
+    inputs: { frames: press(0, 'interact') }, ticks: 3,
   });
-  assert.equal(r.lines[0].score, 0);
-  assert.deepEqual(events(r, 'game_over')[0].data, { result: 'won', reason: 'all_lit' });
-  assert.deepEqual(end(r), { type: 'end', ticks: 1, state: 'won', score: 100 + 100 + 299 * 2 + 3 * 50 });
+  assert.equal(events(nearUnlit, 'deposit')[0].data.lantern_id, 'L2');
 });
 
-test('thang ke ca dung tick het gio; con het gio ma chua du den thi thua dawn', () => {
-  const litOthers = ['L2', 'L3', 'L4', 'L5'].map((id) => ({ id, lit: true }));
-  const sc = { ...Q, time_left_s: 1 / 60, player: { carried: 10 }, lanterns: [{ id: 'L1', pos: [0, 0, 1.5] }, ...litOthers] };
-  const won = run({ scenario: sc, inputs: { frames: press(0, 'interact') }, ticks: 10 });
-  assert.equal(end(won).state, 'won');
-  assert.equal(end(won).score, 100 + 100 + 0 + 150);
-  const dawn = run({ scenario: { ...Q, time_left_s: 1 }, ticks: 500 });
-  assert.deepEqual(events(dawn, 'game_over')[0].data, { result: 'lost', reason: 'dawn' });
-  assert.equal(end(dawn).ticks, 60);
+// [Ticket-03] THAY THE: khong con thang som khi du den; thang = song sot toi binh minh voi >= ceil(0.6 * tong) den sang.
+test('khong con thang som: thap du den van tiep tuc Dem (all_lit khong con dung)', () => {
+  const lit5 = ['L1', 'L2', 'L3', 'L4', 'L5'].map((id) => ({ id, lit: true }));
+  const r = run({ scenario: { ...Q, lanterns: lit5 }, ticks: 100 });
+  assert.equal(events(r, 'game_over').length, 0);
+  assert.equal(end(r).state, 'playing');
+  assert.equal(end(r).ticks, 100);
+});
+
+// [Ticket-03] THAY THE test "thang ke ca dung tick het gio": nay xet thang/thua tai tick binh minh.
+test('binh minh: thang dawn_survived khi du den sang; diem = (50 + floor(fuel)) moi den + 50 moi lua, khong thuong thoi gian', () => {
+  const lit = (n) => ['L1', 'L2', 'L3', 'L4', 'L5'].slice(0, n).map((id) => ({ id, lit: true }));
+  const won = run({ scenario: { ...Q, time_left_s: 1 / 60, lanterns: lit(3) }, ticks: 10 });
+  assert.deepEqual(events(won, 'game_over')[0].data, { result: 'won', reason: 'dawn_survived' });
+  assert.equal(end(won).ticks, 1);
+  assert.equal(end(won).score, 3 * (50 + 99) + 3 * 50); // fuel 99.98 -> floor 99
+  const two = run({ scenario: { ...Q, time_left_s: 1 / 60, lanterns: lit(2) }, ticks: 10 });
+  assert.deepEqual(events(two, 'game_over')[0].data, { result: 'lost', reason: 'dawn' });
+  assert.equal(end(two).score, 0);
+  const fl = run({ scenario: { ...Q, time_left_s: 1 / 60, lanterns: lit(3), player: { flames: 2 } }, ticks: 10 });
+  assert.equal(end(fl).score, 3 * 149 + 2 * 50);
+  const full = run({ scenario: { ...Q, time_left_s: 5, lanterns: lit(3) }, ticks: 400 });
+  assert.equal(end(full).ticks, 300); // chi ket thuc dung luc binh minh
+});
+
+test('nguong thang theo dem: dem 1 can 3/5, dem 2 can 4/6, dem 3 can 5/7', () => {
+  const ids = (n, total) => Array.from({ length: total }, (_, i) => 'L' + (i + 1)).slice(0, n).map((id) => ({ id, lit: true }));
+  for (const [night, total, need] of [[1, 5, 3], [2, 6, 4], [3, 7, 5]]) {
+    const ok = run({ night, scenario: { ...Q, time_left_s: 1 / 60, lanterns: ids(need, total) }, ticks: 5 });
+    assert.equal(end(ok).state, 'won', `dem ${night} voi ${need}`);
+    const no = run({ night, scenario: { ...Q, time_left_s: 1 / 60, lanterns: ids(need - 1, total) }, ticks: 5 });
+    assert.equal(end(no).state, 'lost', `dem ${night} voi ${need - 1}`);
+  }
+});
+
+test('binh minh: het Ngon Lua luon thua no_flames, ke ca o tick cuoi khi da du den', () => {
+  const lit3 = ['L1', 'L2', 'L3'].map((id) => ({ id, lit: true }));
+  const r = run({ scenario: { ...Q, time_left_s: 1 / 60, lanterns: lit3, player: { flames: 0 } }, ticks: 5 });
+  assert.deepEqual(events(r, 'game_over')[0].data, { result: 'lost', reason: 'no_flames' });
+  assert.equal(end(r).score, 0);
 });
 
 test('het lua luon thua (no_flames) ke ca khi dong thoi thap du den', () => {
@@ -491,4 +531,213 @@ test('hieu nang: mot dem day du 21600 tick xong trong <= 30 s', () => {
   assert.equal(r.code, 0);
   assert.ok(Date.now() - t0 < 30000);
   assert.ok(end(r).ticks <= 21600);
+});
+
+
+// ---------------------------------------------------------------- Ticket-03: nhien lieu den
+const near1 = { random_motes: false, random_shades: false, random_drifters: false, wind_enabled: false };
+
+test('snapshot v1.2: den co fuel/ever_lit/relit_count, nguoi choi co capacity, den tat fuel 0; lit:true khong fuel -> 100', () => {
+  const r = run({ scenario: { ...Q, lanterns: [{ id: 'L1', lit: true }] }, ticks: 0 });
+  const s = r.lines[0];
+  assert.deepEqual(s.lanterns[0], { id: 'L1', pos: [0, 0, 25], lit: true, deposited: 10, fuel: 100, ever_lit: true, relit_count: 0 });
+  assert.equal(s.lanterns[1].fuel, 0); assert.equal(s.lanterns[1].ever_lit, false); assert.equal(s.lanterns[1].lit, false);
+  assert.equal(s.player.capacity, 10); // den dat san bang scenario khong tinh vao successful_lights
+  assert.ok(!r.lines.some((l) => l.name === 'lantern_lit'));
+});
+
+test('hao dau 1.0/giay: 600 tick -> mat 10', () => {
+  const r = run({ scenario: { ...Q, lanterns: [{ id: 'L1', lit: true }] }, ticks: 600, every: 600 });
+  assert.equal(snapAt(r, 600).lanterns[0].fuel, 90);
+  assert.equal(snapAt(r, 600).lanterns[0].lit, true);
+});
+
+test('het dau: den tat dung tick, deposited = 0, nho ever_lit, phat lantern_out; thap lai chi can 5', () => {
+  const lan = [{ id: 'L1', pos: [0, 0, 1.5], lit: true, fuel: 0.5 }]; // 30 don vi => het dau o tick 30
+  const fr = press(40, 'interact');
+  const r = run({ scenario: { ...Q, lanterns: lan, player: { carried: 5 } }, inputs: { frames: fr }, ticks: 60, every: 1 });
+  const out = events(r, 'lantern_out');
+  assert.equal(out.length, 1);
+  assert.deepEqual(out[0].data, { lantern_id: 'L1' });
+  assert.equal(out[0].tick, 30);
+  assert.equal(snapAt(r, 29).lanterns[0].lit, true);
+  const s30 = snapAt(r, 30).lanterns[0];
+  assert.deepEqual([s30.lit, s30.deposited, s30.fuel, s30.ever_lit], [false, 0, 0, true]);
+  // thap lai o tick 41 voi 5 dom dom
+  assert.deepEqual(events(r, 'lantern_lit')[0].data, { lantern_id: 'L1', relight: true });
+  assert.equal(events(r, 'lantern_lit')[0].tick, 41);
+  assert.equal(snapAt(r, 41).lanterns[0].relit_count, 1);
+  assert.equal(snapAt(r, 41).player.carried, 0);
+});
+
+test('thap lai: +5/dom dom +40 diem (khong +100), tinh vao successful_lights; chua tung sang van can 10', () => {
+  const sc = (ever) => ({ ...Q, lanterns: [{ id: 'L1', pos: [0, 0, 1.5], ever_lit: ever }], player: { carried: 5 } });
+  const re = run({ scenario: sc(true), inputs: { frames: press(0, 'interact') }, ticks: 3 });
+  assert.deepEqual(events(re, 'lantern_lit')[0].data.relight, true);
+  assert.equal(end(re).score, 25 + 40);
+  assert.equal(last(re).player.capacity, 12);
+  assert.equal(last(re).lanterns[0].relit_count, 1);
+  const first = run({ scenario: sc(false), inputs: { frames: press(0, 'interact') }, ticks: 3 });
+  assert.equal(events(first, 'lantern_lit').length, 0); // moi nap 5/10
+  assert.equal(last(first).lanterns[0].deposited, 5);
+  const four = run({ scenario: { ...sc(true), player: { carried: 4 } }, inputs: { frames: press(0, 'interact') }, ticks: 3 });
+  assert.equal(events(four, 'lantern_lit').length, 0);
+});
+
+test('chau dau: used = min(mang, ceil((100-fuel)/10)), +10 dau/dom dom, +5 diem/dom dom', () => {
+  // fuel scenario = muc mong muon + 1/60 vi dau hao truoc buoc Tuong tac cua cung tick
+  const mk = (fuel, carried) => run({ scenario: { ...Q, lanterns: [{ id: 'L1', pos: [0, 0, 1.5], lit: true, fuel: fuel + 1 / 60 }], player: { carried } }, inputs: { frames: press(0, 'interact') }, ticks: 3, every: 1 });
+  const a = mk(40, 10);
+  assert.deepEqual(events(a, 'refuel')[0].data, { lantern_id: 'L1', amount: 6, fuel: 100 });
+  assert.equal(snapAt(a, 1).player.carried, 4);
+  assert.equal(end(a).score, 30);
+  const b = mk(40, 2);
+  assert.deepEqual(events(b, 'refuel')[0].data, { lantern_id: 'L1', amount: 2, fuel: 60 });
+  assert.equal(snapAt(b, 1).player.carried, 0);
+  assert.equal(end(b).score, 10);
+  const c = mk(95, 5);
+  assert.deepEqual(events(c, 'refuel')[0].data, { lantern_id: 'L1', amount: 1, fuel: 100 }); // chi can 1 dom dom (khong tran)
+  assert.equal(snapAt(c, 1).player.carried, 4);
+  const none = mk(40, 0); // khong mang gi: khong su kien, khong diem
+  assert.equal(events(none, 'refuel').length, 0);
+  assert.equal(end(none).score, 0);
+  assert.equal(events(a, 'lantern_lit').length, 0); // chau dau khong phai thap lai: khong cong diem den
+});
+
+test('dau hao truoc Tuong tac: den vua day 100 van "thieu" 0.017 nen 1 dom dom chau duoc (documented)', () => {
+  const r = run({ scenario: { ...Q, lanterns: [{ id: 'L1', pos: [0, 0, 1.5], lit: true }], player: { carried: 2 } }, inputs: { frames: press(0, 'interact') }, ticks: 3 });
+  assert.deepEqual(events(r, 'refuel')[0].data, { lantern_id: 'L1', amount: 1, fuel: 100 });
+});
+
+test('Suc chua tang dan: 10 + 2*successful_lights toi da 20; dem 0; den dat san khong tinh; nhat dung tran', () => {
+  const cap = (n) => run({ scenario: { ...Q, player: { successful_lights: n } }, ticks: 0 }).lines[0].player.capacity;
+  assert.deepEqual([cap(0), cap(1), cap(3), cap(5), cap(9), cap(50)], [10, 12, 16, 20, 20, 20]);
+  const full = run({ scenario: { ...Q, motes: [[0, 0, 0.5]], player: { carried: 12, successful_lights: 1 } }, ticks: 5 });
+  assert.equal(events(full, 'mote_picked').length, 0);
+  const room = run({ scenario: { ...Q, motes: [[0, 0, 0.5]], player: { carried: 11, successful_lights: 1 } }, ticks: 5 });
+  assert.deepEqual(events(room, 'mote_picked')[0].data, { carried: 12 });
+});
+
+// ---------------------------------------------------------------- Ticket-03: vung an toan va Bong Muc hut dau
+test('vung an toan chi con khi fuel >= 30 (dung 30 van con); chau len >= 30 thi bong trong 6 m bi day ra, khong sat thuong', () => {
+  const mk = (fuel) => run({
+    scenario: { ...Q, player: { pos: [0, 0, 1.5], carried: 1 }, lanterns: [{ id: 'L1', pos: [0, 0, 0], lit: true, fuel }], shades: [{ pos: [3, 0, 1.5] }] },
+    inputs: { frames: press(0, 'interact') }, ticks: 40, every: 1,
+  });
+  const at30 = mk(20 + 1 / 60); // sau hao + chau (+10) = dung 30.0 -> con vung
+  assert.equal(snapAt(at30, 1).lanterns[0].fuel, 30);
+  assert.equal(snapAt(at30, 1).shades[0].state, 'recoil');
+  const dist = (s) => Math.hypot(s.shades[0].pos[0], s.shades[0].pos[2]);
+  assert.ok(dist(snapAt(at30, 30)) >= 6 - 1e-3); // day ra xong trong <= 30 tick (sau do fuel < 30 nen vung mat ngay)
+  assert.ok(dist(snapAt(at30, 15)) < 6 && dist(snapAt(at30, 15)) > dist(snapAt(at30, 1)));
+  assert.equal(events(at30, 'player_hit').length, 0);
+  const below = mk(19.9); // sau hao + chau = 29.88 < 30 -> khong co vung, khong ai bi day ra
+  assert.notEqual(snapAt(below, 1).shades[0].state, 'recoil');
+  // den yeu (fuel < 30) khong chan duoc bong dang duoi (o trong 12 m): bong den sat nguoi choi
+  const weak = run({ scenario: { ...Q, player: { pos: [0, 0, 1] }, lanterns: [{ id: 'L1', pos: [0, 0, 0], lit: true, fuel: 10 }], shades: [{ pos: [11, 0, 0] }] }, ticks: 400 });
+  assert.ok(events(weak, 'player_hit').length >= 1);
+  const strong = run({ scenario: { ...Q, player: { pos: [0, 0, 1] }, lanterns: [{ id: 'L1', pos: [0, 0, 0], lit: true, fuel: 100 }], shades: [{ pos: [11, 0, 0] }] }, ticks: 400 });
+  assert.equal(events(strong, 'player_hit').length, 0);
+});
+
+const far = { player: { pos: [-20, 0, -20] } }; // xa moi thu: khong bi phat hien (>12 m)
+const drainLantern = (fuel = 20) => ({ id: 'L1', pos: [0, 0, 0], lit: true, fuel });
+
+test('wander: nham den sang fuel < 30 gan nhat truoc, khong co thi den tat gan nhat; hoa thi id nho', () => {
+  const target = (lanterns, pos = [0, 0, 10]) => snapAt(run({ scenario: { ...Q, ...far, lanterns, shades: [{ pos, state: 'wander' }] }, ticks: 1, every: 1 }), 1).shades[0].target_lantern_id;
+  const weakFar = { id: 'L1', pos: [30, 0, 0], lit: true, fuel: 10 };
+  const unlitNear = { id: 'L2', pos: [5, 0, 5] };
+  assert.equal(target([weakFar, unlitNear]), 'L1'); // den yeu xa van duoc chon truoc den tat gan
+  assert.equal(target([{ ...weakFar, fuel: 100 }, unlitNear]), 'L2'); // khong co den yeu -> den tat gan nhat
+  assert.equal(target([{ id: 'L1', pos: [10, 0, 10], lit: true, fuel: 5 }, { id: 'L2', pos: [-10, 0, 10], lit: true, fuel: 5 }]), 'L1'); // hoa -> id nho
+  assert.equal(target([{ id: 'L2', pos: [10, 0, 10], lit: true, fuel: 5 }, { id: 'L1', pos: [-10, 0, 10], lit: true, fuel: 5 }]), 'L1');
+  // bong dang duoi (chase) khong doi muc tieu
+  const chase = run({ scenario: { ...Q, player: { pos: [8, 0, 8] }, lanterns: [{ id: 'L1', pos: [30, 0, 0], lit: true, fuel: 10 }], shades: [{ pos: [0, 0, 10], state: 'chase' }] }, ticks: 1, every: 1 });
+  assert.equal(snapAt(chase, 1).shades[0].state, 'chase');
+  assert.equal(snapAt(chase, 1).shades[0].target_lantern_id, null);
+});
+
+test('drain: bong toi den yeu trong 2 m thi dung yen hut 5/giay (cong don voi hao 1/giay); fuel_drain moi 60 tick; het dau thi ve wander', () => {
+  const r = run({ scenario: { ...Q, ...far, lanterns: [drainLantern(20)], shades: [{ id: 'S1', pos: [10, 0, 0], state: 'wander', target_lantern_id: 'L1' }] }, ticks: 400, every: 1 });
+  assert.equal(snapAt(r, 100).shades[0].state, 'wander');
+  const d0 = snapAt(r, 122).shades[0];
+  assert.equal(d0.state, 'drain');
+  assert.ok(Math.hypot(d0.pos[0], d0.pos[2]) <= 2 + 1e-3);
+  assert.deepEqual(snapAt(r, 140).shades[0].pos, d0.pos); // dung yen
+  const f = (t) => snapAt(r, t).lanterns[0].fuel;
+  assert.ok(near(f(150) - f(210), 6.0, 0.06), `giam ${f(150) - f(210)}`); // 1 + 5 moi giay
+  const fd = events(r, 'fuel_drain');
+  assert.ok(fd.length >= 2);
+  assert.equal(fd[1].tick - fd[0].tick, 60);
+  assert.equal(fd[0].data.lantern_id, 'L1'); assert.equal(fd[0].data.shade_id, 'S1');
+  assert.equal(typeof fd[0].data.fuel, 'number');
+  const outEv = events(r, 'lantern_out');
+  assert.equal(outEv.length, 1);
+  assert.ok(outEv[0].tick > 280 && outEv[0].tick < 320);
+  assert.equal(snapAt(r, outEv[0].tick).shades[0].state, 'wander'); // den tat -> wander ngay
+});
+
+test('drain cong don nhieu con: 2 con -> 11/giay', () => {
+  const sh = [{ id: 'S1', pos: [1.5, 0, 0], state: 'drain', target_lantern_id: 'L1' }, { id: 'S2', pos: [-1.5, 0, 0], state: 'drain', target_lantern_id: 'L1' }];
+  const r = run({ scenario: { ...Q, ...far, lanterns: [drainLantern(20)], shades: sh }, ticks: 60, every: 60 });
+  assert.equal(snapAt(r, 60).lanterns[0].fuel, 9); // 20 - 60 * (1 + 5 + 5) / 60
+});
+
+test('drain -> chase khi May vao trong 6 m; -> stunned khi trung Toa Sang (+15 diem); -> wander khi xa den > 2 m', () => {
+  const sh = { id: 'S1', pos: [1.5, 0, 0], state: 'drain', target_lantern_id: 'L1' };
+  const ch = run({ scenario: { ...Q, player: { pos: [5, 0, 0] }, lanterns: [drainLantern()], shades: [sh] }, ticks: 1, every: 1 });
+  assert.equal(snapAt(ch, 1).shades[0].state, 'chase');
+  const pu = run({ scenario: { ...Q, player: { pos: [5, 0, 0], carried: 3 }, lanterns: [drainLantern()], shades: [sh] }, inputs: { frames: press(0, 'pulse') }, ticks: 1, every: 1 });
+  assert.equal(snapAt(pu, 1).shades[0].state, 'stunned');
+  assert.equal(end(pu).score, 15); // tong +15 khi dang drain (thuong: 5)
+  const plain = run({ scenario: { ...Q, player: { pos: [5, 0, 0], carried: 3 }, shades: [{ pos: [8, 0, 0] }] }, inputs: { frames: press(0, 'pulse') }, ticks: 1 });
+  assert.equal(end(plain).score, 5);
+  const away = run({ scenario: { ...Q, ...far, lanterns: [drainLantern()], shades: [{ id: 'S1', pos: [5, 0, 0], state: 'drain', target_lantern_id: 'L1' }] }, ticks: 1, every: 1 });
+  assert.equal(snapAt(away, 1).shades[0].state, 'wander');
+  const dead = run({ scenario: { ...Q, ...far, lanterns: [drainLantern(0.05)], shades: [sh] }, ticks: 1, every: 1 });
+  assert.equal(events(dead, 'lantern_out').length, 1);
+  assert.equal(snapAt(dead, 1).shades[0].state, 'wander');
+});
+
+test('chau dau len >= 30 khi bong dang hut: bong bi day ra khoi vung 6 m (recoil), khong sat thuong', () => {
+  const r = run({
+    scenario: { ...Q, player: { pos: [0, 0, -1.5], carried: 3 }, lanterns: [drainLantern(10 + 1 / 60)], shades: [{ id: 'S1', pos: [1.5, 0, 0], state: 'drain', target_lantern_id: 'L1' }] },
+    inputs: { frames: press(0, 'interact') }, ticks: 40, every: 1,
+  });
+  assert.equal(events(r, 'refuel').length, 1);
+  assert.equal(snapAt(r, 1).shades[0].state, 'recoil');
+  assert.equal(events(r, 'player_hit').length, 0);
+  const d = snapAt(r, 30).shades[0];
+  assert.ok(Math.hypot(d.pos[0], d.pos[2]) >= 6 - 1e-3);
+});
+
+test('het choang -> wander (khong con chase); bong choang khong hut dau', () => {
+  const r = run({ scenario: { ...Q, player: { pos: [0, 0, 0] }, lanterns: [drainLantern(20)], shades: [{ id: 'S1', pos: [15, 0, 0], state: 'stunned', state_ticks_left: 1 }] }, ticks: 1, every: 1 });
+  assert.equal(snapAt(r, 1).shades[0].state, 'wander'); // truoc Ticket-03: 'chase' vi <= 18 m
+});
+
+test('Dem 2 va 3: nhien lieu hoat dong nhu nhau (hao, thap lai, nang suc chua)', () => {
+  for (const night of [2, 3]) {
+    const r = run({ night, scenario: { ...Q, lanterns: [{ id: 'L1', lit: true }, { id: 'L2', ever_lit: true }] }, ticks: 120, every: 60 });
+    assert.equal(snapAt(r, 120).lanterns[0].fuel, 98);
+    assert.equal(snapAt(r, 120).lanterns[1].lit, false);
+  }
+});
+
+test('v1.2: scenario sai (fuel ngoai [0,100], ever_lit, target_lantern_id, successful_lights) -> exit 2', () => {
+  assert.equal(run({ scenario: { lanterns: [{ id: 'L1', lit: true, fuel: 150 }] } }).code, 2);
+  assert.equal(run({ scenario: { lanterns: [{ id: 'L1', lit: true, fuel: -1 }] } }).code, 2);
+  assert.equal(run({ scenario: { lanterns: [{ id: 'L1', ever_lit: 'x' }] } }).code, 2);
+  assert.equal(run({ scenario: { shades: [{ pos: [0, 0, 0], target_lantern_id: 5 }] } }).code, 2);
+  assert.equal(run({ scenario: { player: { successful_lights: -1 } } }).code, 2);
+  assert.equal(run({ scenario: { shades: [{ pos: [0, 0, 0], state: 'drain' }] } }).code, 0); // drain hop le
+});
+
+test('tat dinh voi nhien lieu: scenario co den dang hut dau, cung seed cho cung output', () => {
+  const sc = { random_motes: false, lanterns: [{ id: 'L1', lit: true, fuel: 25 }, { id: 'L2', lit: true, fuel: 15 }] };
+  const inputs = { frames: [{ tick: 0, move: [0, 1] }, ...press(200, 'interact')] };
+  const a = run({ seed: 9, scenario: sc, inputs, ticks: 3000 });
+  const b = run({ seed: 9, scenario: sc, inputs, ticks: 3000 });
+  assert.equal(a.raw, b.raw);
+  assert.ok(events(a, 'lantern_out').length >= 1);
 });
