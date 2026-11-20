@@ -131,69 +131,139 @@ function decorate(root, def, glow) {
     }
     return out;
   };
-  // Bui cay: cum khoi la min (instanced), nhieu sac xanh, co qua va hoa nho; them cum co
+  // Bui cay kieu tranh ve: nen toi + rat nhieu la xep lop (instanced), xanh dam o duoi, xanh non o tren, vai mang sang
   {
-    const blobGeo = new THREE.IcosahedronGeometry(1, 2);
-    const pa = blobGeo.attributes.position;
-    for (let i = 0; i < pa.count; i++) { // mop meo nhe theo ham cua toa do => cac dinh trung nhau van khit
-      const x = pa.getX(i), y = pa.getY(i), z = pa.getZ(i);
-      const d = 1 + 0.1 * Math.sin(5 * x + 3 * y) * Math.cos(4 * z + 2 * y);
-      pa.setXYZ(i, x * d, y * d, z * d);
-    }
-    const spots = pts(def.id === 3 ? 40 : 34, 3.5);
-    const BL = 7;
-    const blobs = new THREE.InstancedMesh(blobGeo, new THREE.MeshStandardMaterial({ roughness: 0.95, emissive: 0x0c2418 }), spots.length * BL);
-    const greens = [0x3a7260, 0x4a8a68, 0x58996c, 0x68a874, 0x427c60, 0x78b47c].map((c) => new THREE.Color(c));
-    const berryGeo = new THREE.SphereGeometry(0.07, 8, 6);
-    const berries = new THREE.InstancedMesh(berryGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x331122, roughness: 0.5 }), spots.length * 5);
-    const bcol = [0xff8fb8, 0xffd36e, 0xff6f91, 0xffffff].map((c) => new THREE.Color(c));
-    const m = new THREE.Matrix4(), qq = new THREE.Quaternion(), ee = new THREE.Euler(), sc = new THREE.Vector3(), pp = new THREE.Vector3();
-    let bi = 0, ri = 0;
+    const spots = pts(def.id === 3 ? 40 : 36, 3.5);
+    const lf = new THREE.Shape(); // la hinh giot nuoc
+    lf.moveTo(0, 0); lf.quadraticCurveTo(0.55, 0.45, 0, 1.2); lf.quadraticCurveTo(-0.55, 0.45, 0, 0);
+    const leafGeo = new THREE.ShapeGeometry(lf, 5);
+    leafGeo.translate(0, -0.45, 0);
+    const LEAVES = 190;
+    const leaves = new THREE.InstancedMesh(leafGeo, new THREE.MeshStandardMaterial({ roughness: 1, side: THREE.DoubleSide, emissive: 0x2a5c34 }), spots.length * LEAVES);
+    const baseGeo = new THREE.IcosahedronGeometry(1, 1);
+    const bases = new THREE.InstancedMesh(baseGeo, new THREE.MeshStandardMaterial({ color: 0x1d4437, roughness: 1, flatShading: true }), spots.length * 3);
+    const dark = new THREE.Color(0x2c6a50), mid = new THREE.Color(0x58aa56), light = new THREE.Color(0xc4ec66);
+    const Z = new THREE.Vector3(0, 0, 1), nrm = new THREE.Vector3(), pp = new THREE.Vector3(), sc = new THREE.Vector3();
+    const qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), m = new THREE.Matrix4(), col = new THREE.Color();
+    const smooth = (e0, e1, x) => { const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
+    let li = 0, bi = 0;
     for (const [x, h, z] of spots) {
-      const big = 0.8 + rnd() * 0.7;
-      for (let i = 0; i < BL; i++) {
-        const a = rnd() * Math.PI * 2, r = (i === 0 ? 0 : 0.45 + rnd() * 0.5) * big;
-        const s = (i === 0 ? 0.7 : 0.4 + rnd() * 0.4) * big;
-        pp.set(x + Math.cos(a) * r, h + s * 0.55 + (i === 0 ? 0.1 : 0), z + Math.sin(a) * r);
-        ee.set(rnd() * 0.4, rnd() * 6.28, rnd() * 0.4); qq.setFromEuler(ee);
-        sc.set(s, s * (0.8 + rnd() * 0.15), s);
-        m.compose(pp, qq, sc); blobs.setMatrixAt(bi, m);
-        const c = greens[Math.floor(rnd() * greens.length)].clone().offsetHSL(0, 0, (rnd() - 0.5) * 0.06);
-        blobs.setColorAt(bi++, c);
+      const R = 1.2 + rnd() * 0.95, Hh = R * (0.62 + rnd() * 0.22);
+      for (let k = 0; k < 3; k++) { // 3 khoi toi lam nen de khong ho
+        const a = rnd() * Math.PI * 2, r = k === 0 ? 0 : R * 0.45;
+        pp.set(x + Math.cos(a) * r * 0.6, h + Hh * 0.3, z + Math.sin(a) * r * 0.6);
+        qa.identity(); sc.set(R * (0.62 + rnd() * 0.1), Hh * 0.5, R * (0.6 + rnd() * 0.1));
+        m.compose(pp, qa, sc); bases.setMatrixAt(bi++, m);
       }
-      for (let k = 0; k < 5; k++) { // qua / hoa nho gan be mat bui
-        const a = rnd() * Math.PI * 2, e = 0.3 + rnd() * 0.8, rr = 0.75 * big;
-        pp.set(x + Math.cos(a) * rr * Math.cos(e), h + 0.25 + Math.sin(e) * rr * 0.9, z + Math.sin(a) * rr * Math.cos(e));
-        m.compose(pp, qq.identity(), sc.set(1, 1, 1));
-        berries.setMatrixAt(ri, m); berries.setColorAt(ri++, bcol[Math.floor(rnd() * bcol.length)]);
+      const clumps = Array.from({ length: 3 }, () => { // vai mang la sang hon (nhu anh mau)
+        const th = rnd() * Math.PI * 2, ph = Math.acos(1 - rnd() * 0.8);
+        return new THREE.Vector3(Math.sin(ph) * Math.cos(th), Math.cos(ph), Math.sin(ph) * Math.sin(th));
+      });
+      for (let i = 0; i < LEAVES; i++) {
+        const th = rnd() * Math.PI * 2, ph = Math.acos(1 - rnd() * 0.97); // nua tren cua vom
+        const d = new THREE.Vector3(Math.sin(ph) * Math.cos(th), Math.cos(ph), Math.sin(ph) * Math.sin(th));
+        pp.set(x + d.x * R * 0.98, h + d.y * Hh * 1.02 + 0.08, z + d.z * R * 0.98);
+        nrm.set(d.x / R, d.y / Hh, d.z / R).normalize(); // phap tuyen cua elip: la nam sat be mat
+        qa.setFromUnitVectors(Z, nrm);
+        qb.setFromAxisAngle(Z, rnd() * Math.PI * 2);
+        qa.multiply(qb);
+        const s = (0.34 + rnd() * 0.26) * (0.8 + 0.4 * d.y);
+        sc.set(s, s * (1 + rnd() * 0.3), s);
+        m.compose(pp, qa, sc); leaves.setMatrixAt(li, m);
+        let f = 0; for (const c of clumps) f = Math.max(f, smooth(0.78, 0.97, d.dot(c)));
+        const t = d.y * 0.85 + (rnd() - 0.5) * 0.35 + f * 0.45;
+        col.copy(dark).lerp(mid, smooth(0.05, 0.6, t)).lerp(light, smooth(0.55, 1.05, t));
+        leaves.setColorAt(li++, col);
       }
     }
-    root.add(blobs, berries);
+    root.add(bases, leaves);
     // Cum co nho tren mat dat
     const tufts = pts(320, 1.5);
-    const tuftGeo = new THREE.ConeGeometry(0.05, 0.42, 4);
-    const grass = new THREE.InstancedMesh(tuftGeo, new THREE.MeshStandardMaterial({ roughness: 1 }), tufts.length * 3);
+    const grass = new THREE.InstancedMesh(new THREE.ConeGeometry(0.05, 0.42, 4), new THREE.MeshStandardMaterial({ roughness: 1 }), tufts.length * 3);
+    const gcol = [0x3a7260, 0x4a8a68, 0x58996c, 0x68a874, 0x78b47c].map((c) => new THREE.Color(c));
+    const ee = new THREE.Euler();
     let gi = 0;
     for (const [x, h, z] of tufts) {
       for (let k = 0; k < 3; k++) {
         const hh = 0.7 + rnd() * 0.9;
         pp.set(x + (rnd() - 0.5) * 0.25, h + 0.2 * hh, z + (rnd() - 0.5) * 0.25);
-        ee.set((rnd() - 0.5) * 0.5, 0, (rnd() - 0.5) * 0.5); qq.setFromEuler(ee);
-        m.compose(pp, qq, sc.set(1, hh, 1)); grass.setMatrixAt(gi, m);
-        grass.setColorAt(gi++, greens[Math.floor(rnd() * greens.length)]);
+        ee.set((rnd() - 0.5) * 0.5, 0, (rnd() - 0.5) * 0.5); qa.setFromEuler(ee);
+        m.compose(pp, qa, sc.set(1, hh, 1)); grass.setMatrixAt(gi, m);
+        grass.setColorAt(gi++, gcol[Math.floor(rnd() * gcol.length)]);
       }
     }
     root.add(grass);
   }
-  // Cay cau (Dem 2)
-  if (def.id === 2) {
-    for (const [x, h, z] of pts(14, 4)) {
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, 4.5, 8), mat(PAL.wood));
-      trunk.position.set(x, h + 2.25, z);
-      const crown = new THREE.Mesh(new THREE.ConeGeometry(1.4, 1.6, 7), mat(PAL.grass, { flatShading: true }));
-      crown.position.set(x, h + 5, z);
-      root.add(trunk, crown);
+  // Cay dua (than cong, tan la long chim rũ, qua dua) va cay cau (thanh manh, thang) - chi la trang tri
+  {
+    const frondGeo = (len, wid) => {
+      const g = new THREE.PlaneGeometry(1, 1, 2, 16);
+      const pa = g.attributes.position;
+      for (let i = 0; i < pa.count; i++) {
+        const sx = pa.getX(i), s = pa.getY(i) + 0.5;
+        let xw = sx * 2 * wid * (1 - s * 0.78);
+        if (Math.abs(sx) > 0.4) xw *= 1 + 0.22 * Math.sin(s * 46); // mep rang cua nhu cac chiec la phu
+        const yy = len * (0.28 * s - 0.62 * s * s) - Math.abs(xw) * 0.5; // vong len roi rũ xuong, gap chu V
+        pa.setXYZ(i, xw, yy, s * len);
+      }
+      g.computeVertexNormals();
+      return g;
+    };
+    const makeInst = (geo, n, mat) => new THREE.InstancedMesh(geo, mat, Math.max(1, n));
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8c6c48, roughness: 1 });
+    const palms = [];
+    const nCoco = def.id === 2 ? 8 : 12, nAreca = def.id === 2 ? 14 : 0;
+    for (const [x, h, z] of pts(nCoco, 4.5)) palms.push({ kind: 'coco', x, h, z });
+    for (const [x, h, z] of pts(nAreca, 4)) palms.push({ kind: 'areca', x, h, z });
+    const frondsC = [], frondsA = [], nuts = [], rings = [];
+    const Zv = new THREE.Vector3(0, 0, 1), tmp = new THREE.Vector3();
+    const q = new THREE.Quaternion(), mm = new THREE.Matrix4(), eu = new THREE.Euler(), pv = new THREE.Vector3(), sv = new THREE.Vector3();
+    const gpal = [0x3f8a4a, 0x4fa055, 0x2f7a46, 0x63b05a, 0x56a85c].map((c) => new THREE.Color(c));
+    for (const pl of palms) {
+      const coco = pl.kind === 'coco';
+      const H = coco ? 5 + rnd() * 2.2 : 6.5 + rnd() * 2;
+      const lean = coco ? 1.4 + rnd() * 1.6 : 0.3 + rnd() * 0.4;
+      const a = rnd() * Math.PI * 2, dx = Math.cos(a), dz = Math.sin(a);
+      const curve = new THREE.CatmullRomCurve3([0, 0.25, 0.5, 0.75, 1].map((t) => new THREE.Vector3(dx * lean * t * t, H * t, dz * lean * t * t)));
+      const r = coco ? 0.19 : 0.11;
+      const trunk = new THREE.Mesh(new THREE.TubeGeometry(curve, 14, r, 8, false), trunkMat);
+      trunk.position.set(pl.x, pl.h, pl.z);
+      root.add(trunk);
+      for (let i = 1; i <= 7; i++) { // vong tren than
+        const t = i / 8, pt = curve.getPoint(t);
+        q.setFromUnitVectors(Zv, curve.getTangent(t, tmp).normalize());
+        mm.compose(pv.set(pl.x + pt.x, pl.h + pt.y, pl.z + pt.z), q, sv.setScalar(r * 1.1));
+        rings.push(mm.clone());
+      }
+      const top = curve.getPoint(1);
+      const cx = pl.x + top.x, cy = pl.h + top.y, cz = pl.z + top.z;
+      const n = coco ? 10 + Math.floor(rnd() * 3) : 7 + Math.floor(rnd() * 2);
+      for (let i = 0; i < n; i++) {
+        const yaw = (i / n) * Math.PI * 2 + rnd() * 0.4;
+        const tilt = coco ? -0.35 + rnd() * 0.55 : -0.85 + rnd() * 0.4; // am = ngang len; dua rũ hon cau
+        eu.set(tilt, yaw, 0, 'YXZ'); q.setFromEuler(eu);
+        mm.compose(pv.set(cx, cy, cz), q, sv.setScalar(0.8 + rnd() * 0.45));
+        (coco ? frondsC : frondsA).push({ m: mm.clone(), c: gpal[Math.floor(rnd() * gpal.length)] });
+      }
+      if (coco) for (let i = 0; i < 4; i++) { // chum qua dua duoi tan la
+        const ang = rnd() * Math.PI * 2;
+        mm.compose(pv.set(cx + Math.cos(ang) * 0.26, cy - 0.3 - rnd() * 0.15, cz + Math.sin(ang) * 0.26), q.identity(), sv.setScalar(0.2));
+        nuts.push(mm.clone());
+      }
     }
+    const leafMat = () => new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, side: THREE.DoubleSide, emissive: 0x0a2010 });
+    const build = (list, geo) => {
+      const im = makeInst(geo, list.length, leafMat());
+      list.forEach((f, i) => { im.setMatrixAt(i, f.m); im.setColorAt(i, f.c); });
+      root.add(im);
+    };
+    build(frondsC, frondGeo(3.4, 0.5));
+    build(frondsA, frondGeo(2.5, 0.32));
+    const ringIm = makeInst(new THREE.TorusGeometry(1, 0.13, 5, 12), rings.length, new THREE.MeshStandardMaterial({ color: 0x6a4e32, roughness: 1 }));
+    rings.forEach((r, i) => ringIm.setMatrixAt(i, r));
+    const nutIm = makeInst(new THREE.SphereGeometry(1, 10, 8), nuts.length, new THREE.MeshStandardMaterial({ color: 0x6f8f3a, roughness: 0.8 }));
+    nuts.forEach((r, i) => nutIm.setMatrixAt(i, r));
+    root.add(ringIm, nutIm);
   }
   // Hoa nho (instanced)
   const list = pts(200, 2);
