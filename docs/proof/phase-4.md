@@ -30,7 +30,7 @@ File gốc: [bench.json](../../bench.json), [soak.json](../../soak.json) (do ch�
 ## Chưa đạt / chưa kiểm chứng (trung thực)
 - **Máy chấm của giảng viên:** số đo ở trên chỉ để tham khảo. Cảnh benchmark vẽ Bóng Mực bằng nhiều mesh riêng (chưa dùng instancing) nên p1 low (41.7) chỉ hơn ngưỡng 30 một khoảng vừa phải trên GPU tích hợp.
 - **macOS/Linux:** chưa thử trên máy thật. `bench.js` có đường dẫn trình duyệt và lấy mẫu bộ nhớ cho cả hai hệ nhưng chưa chạy ở đó.
-- **Video demo `.mp4`:** chưa có. Máy không có công cụ quay/encode; kịch bản nằm ở [docs/demo/DEMO.md](../demo/DEMO.md), tác giả cần tự quay.
+- **Video demo `.mp4`:** 4 phút 18 giây (dưới 5 phút), 328 MB, do tác giả quay và đính kèm vào Release v1.0.0 (https://github.com/vugialinh905-wq/K5-L3A-DAY12-VuGiaLinh-2A202603677-AI-SDLC-Dao-Den-Long/releases/download/v1.0.0/demo.mp4); vượt giới hạn 100 MB của file trong repo nên không nằm trong `docs/demo/`. Nội dung video chưa được tác giả của tài liệu này xem lại từng giây.
 - **GitHub Release v1.0.0:** tạo sau khi có xác nhận của tác giả (hành động công khai).
 - **Phụ đề gió, giảm chuyển động:** kiểm bằng mã và trạng thái DOM, chưa có ảnh/video chứng minh hiệu ứng.
 - **`peak_mem_mb`:** là tổng working set của mọi tiến trình trình duyệt (có tính trùng bộ nhớ dùng chung), không phải RSS chính xác của một tiến trình.

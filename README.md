@@ -1,6 +1,6 @@
 # Đảo Đèn Lồng
 
-> **Video demo:** `docs/demo/demo.mp4` _(đính kèm Release v1.0.0; kịch bản quay: [docs/demo/DEMO.md](docs/demo/DEMO.md))_
+> **Video demo (4 phút 18 giây):** [demo.mp4 trong Release v1.0.0](https://github.com/vugialinh905-wq/K5-L3A-DAY12-VuGiaLinh-2A202603677-AI-SDLC-Dao-Den-Long/releases/download/v1.0.0/demo.mp4) · kịch bản quay: [docs/demo/DEMO.md](docs/demo/DEMO.md)
 
 ![Menu](docs/img/menu.jpg)
 ![Đang chơi: đèn yếu bị Bóng Mực hút dầu](docs/img/gameplay.jpg)
