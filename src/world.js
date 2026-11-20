@@ -131,21 +131,59 @@ function decorate(root, def, glow) {
     }
     return out;
   };
-  // Bui cay
-  const geo = new THREE.IcosahedronGeometry(1, 1);
-  for (const [x, h, z] of pts(def.id === 3 ? 40 : 34, 3.5)) {
-    const g = new THREE.Group();
-    const n = 2 + Math.floor(rnd() * 2);
-    for (let i = 0; i < n; i++) {
-      const m = new THREE.Mesh(geo, mat(PAL.grass, { flatShading: true }));
-      m.material.color.offsetHSL(0, 0.05, (rnd() - 0.4) * 0.08);
-      const s = 0.5 + rnd() * 0.6;
-      m.scale.set(s, s * 0.8, s);
-      m.position.set((rnd() - 0.5) * 1.1, s * 0.6, (rnd() - 0.5) * 1.1);
-      g.add(m);
+  // Bui cay: cum khoi la min (instanced), nhieu sac xanh, co qua va hoa nho; them cum co
+  {
+    const blobGeo = new THREE.IcosahedronGeometry(1, 2);
+    const pa = blobGeo.attributes.position;
+    for (let i = 0; i < pa.count; i++) { // mop meo nhe theo ham cua toa do => cac dinh trung nhau van khit
+      const x = pa.getX(i), y = pa.getY(i), z = pa.getZ(i);
+      const d = 1 + 0.1 * Math.sin(5 * x + 3 * y) * Math.cos(4 * z + 2 * y);
+      pa.setXYZ(i, x * d, y * d, z * d);
     }
-    g.position.set(x, h, z);
-    root.add(g);
+    const spots = pts(def.id === 3 ? 40 : 34, 3.5);
+    const BL = 7;
+    const blobs = new THREE.InstancedMesh(blobGeo, new THREE.MeshStandardMaterial({ roughness: 0.95, emissive: 0x0c2418 }), spots.length * BL);
+    const greens = [0x3a7260, 0x4a8a68, 0x58996c, 0x68a874, 0x427c60, 0x78b47c].map((c) => new THREE.Color(c));
+    const berryGeo = new THREE.SphereGeometry(0.07, 8, 6);
+    const berries = new THREE.InstancedMesh(berryGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x331122, roughness: 0.5 }), spots.length * 5);
+    const bcol = [0xff8fb8, 0xffd36e, 0xff6f91, 0xffffff].map((c) => new THREE.Color(c));
+    const m = new THREE.Matrix4(), qq = new THREE.Quaternion(), ee = new THREE.Euler(), sc = new THREE.Vector3(), pp = new THREE.Vector3();
+    let bi = 0, ri = 0;
+    for (const [x, h, z] of spots) {
+      const big = 0.8 + rnd() * 0.7;
+      for (let i = 0; i < BL; i++) {
+        const a = rnd() * Math.PI * 2, r = (i === 0 ? 0 : 0.45 + rnd() * 0.5) * big;
+        const s = (i === 0 ? 0.7 : 0.4 + rnd() * 0.4) * big;
+        pp.set(x + Math.cos(a) * r, h + s * 0.55 + (i === 0 ? 0.1 : 0), z + Math.sin(a) * r);
+        ee.set(rnd() * 0.4, rnd() * 6.28, rnd() * 0.4); qq.setFromEuler(ee);
+        sc.set(s, s * (0.8 + rnd() * 0.15), s);
+        m.compose(pp, qq, sc); blobs.setMatrixAt(bi, m);
+        const c = greens[Math.floor(rnd() * greens.length)].clone().offsetHSL(0, 0, (rnd() - 0.5) * 0.06);
+        blobs.setColorAt(bi++, c);
+      }
+      for (let k = 0; k < 5; k++) { // qua / hoa nho gan be mat bui
+        const a = rnd() * Math.PI * 2, e = 0.3 + rnd() * 0.8, rr = 0.75 * big;
+        pp.set(x + Math.cos(a) * rr * Math.cos(e), h + 0.25 + Math.sin(e) * rr * 0.9, z + Math.sin(a) * rr * Math.cos(e));
+        m.compose(pp, qq.identity(), sc.set(1, 1, 1));
+        berries.setMatrixAt(ri, m); berries.setColorAt(ri++, bcol[Math.floor(rnd() * bcol.length)]);
+      }
+    }
+    root.add(blobs, berries);
+    // Cum co nho tren mat dat
+    const tufts = pts(320, 1.5);
+    const tuftGeo = new THREE.ConeGeometry(0.05, 0.42, 4);
+    const grass = new THREE.InstancedMesh(tuftGeo, new THREE.MeshStandardMaterial({ roughness: 1 }), tufts.length * 3);
+    let gi = 0;
+    for (const [x, h, z] of tufts) {
+      for (let k = 0; k < 3; k++) {
+        const hh = 0.7 + rnd() * 0.9;
+        pp.set(x + (rnd() - 0.5) * 0.25, h + 0.2 * hh, z + (rnd() - 0.5) * 0.25);
+        ee.set((rnd() - 0.5) * 0.5, 0, (rnd() - 0.5) * 0.5); qq.setFromEuler(ee);
+        m.compose(pp, qq, sc.set(1, hh, 1)); grass.setMatrixAt(gi, m);
+        grass.setColorAt(gi++, greens[Math.floor(rnd() * greens.length)]);
+      }
+    }
+    root.add(grass);
   }
   // Cay cau (Dem 2)
   if (def.id === 2) {

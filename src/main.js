@@ -34,22 +34,69 @@ moon.position.set(-20, 40, -10);
 scene.add(ambient, moon);
 const glow = glowTexture();
 
-// ---------- Nhan vat May: non la + khan do + den long nho ----------
+// ---------- Nhan vat May: vay hong, ao kem, khan do, non la co den long nho ----------
 const player = new THREE.Group();
+const rig = {};
+function miniLantern(scale = 1) {
+  const g = new THREE.Group();
+  const paper = new THREE.MeshStandardMaterial({ color: PAL.lampOn, emissive: PAL.lampOn, emissiveIntensity: 0.9, roughness: 0.6 });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.15, 14, 10), paper); body.scale.set(1, 1.2, 1);
+  const capM = new THREE.MeshStandardMaterial({ color: 0x5a3a24 });
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.04, 10), capM); top.position.y = 0.2;
+  const bot = top.clone(); bot.position.y = -0.2;
+  const tassel = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.14, 6), new THREE.MeshStandardMaterial({ color: PAL.scarf })); tassel.position.y = -0.3; tassel.rotation.x = Math.PI;
+  g.add(body, top, bot, tassel);
+  g.scale.setScalar(scale);
+  return g;
+}
 {
-  const std = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9, ...o });
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.45, 0.9, 12), std(PAL.shirt)); body.position.y = 0.55;
-  const scarf = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.09, 8, 16), std(PAL.scarf)); scarf.rotation.x = Math.PI / 2; scarf.position.y = 1.02;
-  const tail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.5, 0.04), std(PAL.scarf)); tail.position.set(0, 0.8, -0.32); tail.rotation.x = 0.3;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.29, 16, 12), std(0xf0c9a0)); head.position.y = 1.25;
-  const hat = new THREE.Mesh(new THREE.ConeGeometry(0.62, 0.5, 20), std(0xe8d08a)); hat.position.y = 1.6;
-  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 8), new THREE.MeshBasicMaterial({ color: PAL.lampOn })); lamp.position.set(0.5, 1.3, 0.1);
-  const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.3, 4), std(0x333333)); cord.position.set(0.5, 1.5, 0.1);
-  const lampLight = new THREE.PointLight(PAL.lampOn, 2.4, 14, 1.6); lampLight.position.copy(lamp.position);
-  player.add(body, scarf, tail, head, hat, lamp, cord, lampLight);
+  const std = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85, ...o });
+  const PINK = 0xf8a3c4, PINK_D = 0xe57aa3, SKIN = 0xf3cba6, HAIR = 0x3a2418;
+  const upper = new THREE.Group(); // than tren: nhun khi chay
+  const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.68, 0.8, 24, 1, true), std(PINK, { side: THREE.DoubleSide, emissive: 0x3a1020 }));
+  skirt.position.y = 0.52;
+  const hem = new THREE.Mesh(new THREE.TorusGeometry(0.675, 0.05, 8, 32), std(PINK_D)); hem.rotation.x = Math.PI / 2; hem.position.y = 0.13;
+  const waist = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.28, 0.07, 16), std(PINK_D)); waist.position.y = 0.93;
+  const blouse = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.27, 0.34, 16), std(PAL.shirt)); blouse.position.y = 1.12;
+  const scarf = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.07, 8, 16), std(PAL.scarf)); scarf.rotation.x = Math.PI / 2; scarf.position.y = 1.33;
+  const tail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.42, 0.03), std(PAL.scarf)); tail.position.set(0.1, 1.12, -0.24); tail.rotation.x = 0.35;
+  const puffs = [-1, 1].map((sx) => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), std(PAL.shirt)); m.position.set(sx * 0.27, 1.2, 0); return m; });
+  const hands = [-1, 1].map((sx) => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), std(SKIN)); m.position.set(sx * 0.3, 0.98, 0.04); return m; });
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.29, 18, 14), std(SKIN)); head.position.y = 1.58;
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.31, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.62), std(HAIR)); hair.position.set(0, 1.6, -0.03); hair.rotation.x = -0.25;
+  const tails = [-1, 1].map((sx) => {
+    const t = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), std(HAIR)); t.position.set(sx * 0.3, 1.46, -0.08);
+    const r = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), std(PINK)); r.position.set(sx * 0.28, 1.56, -0.05);
+    return [t, r];
+  }).flat();
+  const eyeM = new THREE.MeshBasicMaterial({ color: 0x1a1020 });
+  const eyes = [-1, 1].map((sx) => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6), eyeM); m.position.set(sx * 0.1, 1.58, 0.265); return m; });
+  const cheeks = [-1, 1].map((sx) => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff9db5 })); m.scale.z = 0.4; m.position.set(sx * 0.17, 1.51, 0.23); return m; });
+  const hat = new THREE.Mesh(new THREE.ConeGeometry(0.7, 0.5, 28), std(0xe8d08a)); hat.position.y = 2.0;
+  const band = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.025, 6, 32), std(PINK)); band.rotation.x = Math.PI / 2; band.position.y = 1.78;
+  const strapL = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.34, 4), std(PINK)); strapL.position.set(-0.3, 1.55, 0.06);
+  const strapR = strapL.clone(); strapR.position.x = 0.3;
+  // Chan va giay
+  const legs = [-1, 1].map((sx) => {
+    const g = new THREE.Group(); g.position.set(sx * 0.13, 0.2, 0);
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.3, 6), std(SKIN)); leg.position.y = -0.1;
+    const shoe = new THREE.Mesh(new THREE.SphereGeometry(0.075, 8, 6), std(0x7a3a4a)); shoe.scale.set(1, 0.6, 1.4); shoe.position.set(0, -0.25, 0.03);
+    g.add(leg, shoe);
+    return g;
+  });
+  // Den long nho treo o vanh non (theo PRD-0), co day
+  const lampG = new THREE.Group(); lampG.position.set(0.66, 1.78, 0.05);
+  const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.3, 4), std(0x333333)); cord.position.y = -0.15;
+  const lamp = miniLantern(1.1); lamp.position.y = -0.48;
+  lampG.add(cord, lamp);
+  const lampLight = new THREE.PointLight(PAL.lampOn, 2.4, 14, 1.6); lampLight.position.set(0, -0.48, 0); lampG.add(lampLight);
+  upper.add(waist, blouse, scarf, tail, ...puffs, ...hands, head, hair, ...tails, ...eyes, ...cheeks, hat, band, strapL, strapR, lampG);
+  player.add(skirt, hem, upper, ...legs);
+  Object.assign(rig, { upper, skirt, hem, legs, lampG });
   player.userData = { lampLight };
 }
 scene.add(player);
+let walkPhase = 0, lastSync = 0;
 const pulseRing = new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 48), new THREE.MeshBasicMaterial({ color: PAL.lampOn, transparent: true, side: THREE.DoubleSide }));
 pulseRing.rotation.x = -Math.PI / 2; pulseRing.visible = false;
 scene.add(pulseRing);
@@ -80,18 +127,53 @@ function makeMote() {
   return g;
 }
 function makeLantern() {
+  // Cot go co de da, canh tay, den long giay co khung suon, nap go, tua do va xich treo
   const g = new THREE.Group();
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 3, 8), new THREE.MeshStandardMaterial({ color: PAL.wood }));
-  pole.position.y = 1.5;
-  const globe = new THREE.Mesh(new THREE.SphereGeometry(0.6, 20, 14), new THREE.MeshStandardMaterial({ color: PAL.lampOff, emissive: PAL.lampOn, emissiveIntensity: 0 }));
-  globe.position.y = 3.4;
-  const light = new THREE.PointLight(PAL.lampOn, 0, 26, 1.4); light.position.y = 3.4;
+  const wood = new THREE.MeshStandardMaterial({ color: PAL.wood, roughness: 1 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x5a3a24, roughness: 1 });
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.62, 0.3, 12), new THREE.MeshStandardMaterial({ color: 0x77706a, roughness: 1 })); base.position.y = 0.15;
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.15, 3.4, 8), wood); pole.position.y = 1.9;
+  const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, 1.15, 8), wood); arm.rotation.z = Math.PI / 2; arm.position.set(0.52, 3.55, 0);
+  const brace = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.8, 6), wood); brace.rotation.z = -Math.PI / 4; brace.position.set(0.3, 3.2, 0);
+  const knob = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), dark); knob.position.set(0, 3.62, 0);
+  const swing = new THREE.Group(); swing.position.set(1.05, 3.55, 0); // diem treo
+  const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.4, 4), new THREE.MeshStandardMaterial({ color: PAL.gold, roughness: 0.4 })); chain.position.y = -0.2;
+  const lg = new THREE.Group(); lg.position.y = -1.3; // tam than den
+  const paper = new THREE.MeshStandardMaterial({ color: PAL.lampOff, emissive: PAL.lampOn, emissiveIntensity: 0, roughness: 0.7 });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.72, 24, 16), paper); body.scale.set(1, 1.2, 1);
+  const ribM = new THREE.MeshStandardMaterial({ color: 0x7a2a1a, roughness: 0.8 });
+  const ribs = new THREE.Group();
+  for (let i = 0; i < 10; i++) {
+    const r = new THREE.Mesh(new THREE.TorusGeometry(0.725, 0.014, 6, 32), ribM);
+    r.rotation.y = (i * Math.PI) / 10;
+    ribs.add(r);
+  }
+  ribs.scale.set(1, 1.2, 1);
+  const hoopM = new THREE.MeshStandardMaterial({ color: PAL.gold, roughness: 0.4 });
+  const hoop1 = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.025, 6, 32), hoopM); hoop1.rotation.x = Math.PI / 2; hoop1.position.y = 0.38;
+  const hoop2 = hoop1.clone(); hoop2.position.y = -0.38;
+  const capTop = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.4, 0.14, 16), dark); capTop.position.y = 0.88;
+  const capBot = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.34, 0.14, 16), dark); capBot.position.y = -0.88;
+  const ringTop = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.025, 6, 12), hoopM); ringTop.position.y = 1.0;
+  const tasM = new THREE.MeshStandardMaterial({ color: PAL.scarf, roughness: 0.8 });
+  const knot = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), tasM); knot.position.y = -1.0;
+  const tassel = new THREE.Group();
+  for (let i = 0; i < 7; i++) {
+    const a = (i / 7) * Math.PI * 2;
+    const t = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.55, 4), tasM);
+    t.position.set(Math.cos(a) * 0.05, -1.32, Math.sin(a) * 0.05);
+    t.rotation.z = Math.cos(a) * 0.12; t.rotation.x = Math.sin(a) * 0.12;
+    tassel.add(t);
+  }
+  const light = new THREE.PointLight(PAL.lampOn, 0, 26, 1.4);
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0 }));
-  halo.scale.setScalar(6); halo.position.y = 3.4;
+  halo.scale.setScalar(6.5);
+  lg.add(body, ribs, hoop1, hoop2, capTop, capBot, ringTop, knot, tassel, light, halo);
+  swing.add(chain, lg);
   const ring = new THREE.Mesh(new THREE.RingGeometry(TUNING.safe_radius - 0.1, TUNING.safe_radius, 64), new THREE.MeshBasicMaterial({ color: PAL.lampOn, transparent: true, opacity: 0, side: THREE.DoubleSide }));
   ring.rotation.x = -Math.PI / 2; ring.position.y = 0.05;
-  g.add(pole, globe, light, halo, ring);
-  g.userData = { globe, light, halo, ring };
+  g.add(base, pole, arm, brace, knob, swing, ring);
+  g.userData = { globe: body, light, halo, ring, swing };
   scene.add(g);
   return g;
 }
@@ -162,6 +244,16 @@ function syncViews(game, time) {
   player.rotation.y = Math.atan2(p.facing[0], p.facing[1]);
   player.visible = p.respawn === 0 && (p.invuln % 8 < 5);
   player.userData.lampLight.intensity = 2.4 + Math.sin(time * 6) * 0.25;
+  { // chay: nhun nguoi, vay lac, chan buoc, den long dung dua
+    const dtv = Math.min(0.1, Math.max(0, time - lastSync)); lastSync = time;
+    const sp = Math.hypot(p.hv[0], p.hv[1]), k = p.grounded ? Math.min(1, sp / 6) : 0;
+    walkPhase += sp * dtv * 1.9;
+    rig.upper.position.y = Math.abs(Math.sin(walkPhase)) * 0.06 * k;
+    rig.skirt.rotation.z = Math.sin(walkPhase) * 0.07 * k;
+    rig.skirt.scale.set(1 + Math.sin(walkPhase * 2) * 0.03 * k, 1, 1 + Math.cos(walkPhase * 2) * 0.03 * k);
+    rig.legs[0].rotation.x = Math.sin(walkPhase) * 0.7 * k; rig.legs[1].rotation.x = -Math.sin(walkPhase) * 0.7 * k;
+    rig.lampG.rotation.z = Math.sin(time * 2.2) * 0.06 + Math.sin(walkPhase) * 0.12 * k;
+  }
 
   const total = game.lanterns.length, lit = game.lanterns.filter((l) => l.lit).length;
   ambient.intensity = 0.15 + 0.55 * (lit / total); // cong thuc chuan cua ticket
@@ -171,15 +263,17 @@ function syncViews(game, time) {
     let v = views.lanterns.get(l.id);
     if (!v) { v = makeLantern(); views.lanterns.set(l.id, v); }
     v.position.set(l.pos[0], l.pos[1], l.pos[2]);
+    // Canh tay huong ve tam dao
+    const cx = game.night === 2 && l.pos[0] > 35 ? 70 : 0;
+    v.rotation.y = Math.atan2(l.pos[2], cx - l.pos[0]);
     const frac = l.lit ? 1 : l.deposited / TUNING.lantern_cost;
-    const u = v.userData;
-    u.globe.material.color.setHex(l.lit ? PAL.lampCore : PAL.lampOff).lerp(new THREE.Color(PAL.lampOn), l.lit ? 0 : frac * 0.7);
-    u.globe.material.emissive.setHex(l.lit ? PAL.lampOn : PAL.lampOn);
-    u.globe.material.emissiveIntensity = l.lit ? 1.6 : frac * 1.1;
+    const u = v.userData, mt = u.globe.material;
+    if (l.lit) { mt.color.setHex(PAL.lampOn); mt.emissive.setHex(PAL.lampCore); mt.emissiveIntensity = 0.95; }
+    else { mt.color.setHex(PAL.lampOff).lerp(new THREE.Color(PAL.lampOn), frac * 0.8); mt.emissive.setHex(PAL.lampOn); mt.emissiveIntensity = frac * 0.7; }
     u.light.intensity = l.lit ? 70 : frac * 10;
     u.halo.material.opacity = l.lit ? 0.85 : frac * 0.4;
     u.ring.material.opacity = l.lit ? 0.55 : 0;
-    u.ring.scale.setScalar(1);
+    u.swing.rotation.z = Math.sin(time * 1.3 + l.pos[0]) * (l.lit ? 0.05 : 0.025);
   }
 
   const seen = new Set();
@@ -537,3 +631,18 @@ syncViews(menuGame(), 0);
 requestAnimationFrame(frame);
 window.__run = () => run;
 window.__game = () => run.game;
+
+// Duong tat de thu nhanh: http://localhost:8080/?night=2 (hoac 3) mo thang man gioi thieu Dem do
+{
+  const q = new URLSearchParams(location.search).get('night');
+  if (q === '1' || q === '2' || q === '3') { run.total = 0; showIntro(Number(q)); }
+}
+
+// Roi tab / an cua so: tu dong tam dung game va tat tieng (khong de nhac chay ngam)
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (run.state === 'play') pauseGame();
+    audio.suspendAudio();
+  } else audio.resumeAudio();
+});
+addEventListener('pagehide', () => { audio.stopMusic(); audio.suspendAudio(); });

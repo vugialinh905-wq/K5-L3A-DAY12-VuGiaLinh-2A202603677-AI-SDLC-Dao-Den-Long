@@ -84,3 +84,6 @@ export function startMusic() {
   musicTimer = setInterval(musicBar, 6000);
 }
 export function stopMusic() { clearInterval(musicTimer); musicTimer = null; }
+// Tat tieng khi roi tab / thu nho cua so; bat lai khi quay lai
+export function suspendAudio() { if (ctx && ctx.state === 'running') ctx.suspend(); }
+export function resumeAudio() { if (ctx && ctx.state === 'suspended') ctx.resume(); }

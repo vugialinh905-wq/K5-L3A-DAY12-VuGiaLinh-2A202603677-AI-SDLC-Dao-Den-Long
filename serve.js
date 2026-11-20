@@ -10,6 +10,7 @@ const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; ch
 
 http.createServer((req, res) => {
   const url = decodeURIComponent(req.url.split('?')[0]);
+  if (url === '/favicon.ico') { res.writeHead(204); res.end(); return; }
   const rel = url === '/' ? '/index.html' : url;
   const file = path.normalize(path.join(root, rel));
   if (!file.startsWith(root) || !/^\/(index\.html|src\/|public\/)/.test(rel)) { res.writeHead(404); res.end('Not found'); return; }
