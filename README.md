@@ -5,6 +5,55 @@
 
 ---
 
+## Đảo Đèn Lồng — bản game (Phase 1)
+
+> Video demo: _(bổ sung ở Phase 4)_
+
+Mây, người giữ đèn nhỏ tuổi, gom đom đóm, nạp ánh sáng vào 5 Đèn Lồng Lớn và né Bóng Mực trong sương đen. Thắp hết đèn thì thắng, hết 3 ngọn lửa hoặc hết giờ (bình minh) thì thua.
+
+### Cài đặt và chạy (cần Node ≥ 18)
+
+```bash
+npm install          # không có phụ thuộc, chỉ để khớp build_cmd
+node serve.js        # mở http://localhost:8080 (Three.js nạp qua CDN, cần mạng)
+npm test             # 16 test headless
+```
+
+### Điều khiển
+
+| Phím | Hành động |
+|---|---|
+| W A S D | Di chuyển (theo hướng camera) |
+| Space | Nhảy |
+| E | Nạp ánh sáng vào đèn gần nhất (trong `interact_radius`) |
+| F | Tỏa sáng: làm choáng và đẩy lùi Bóng Mực, tốn 1 đom đóm |
+| ← → hoặc Z C | Xoay camera |
+| R | Chơi lại (sau khi thắng/thua) |
+
+### Cách tính điểm
++10 mỗi đom đóm nhặt · +100 mỗi đèn thắp · +20 mỗi Bóng Mực bị làm choáng · khi thắng: +1 mỗi giây còn lại (làm tròn xuống) và +50 mỗi ngọn lửa còn lại.
+
+### Chế độ headless (Test Contract v1.0)
+
+```bash
+node src/headless.js --seed 1 --night 1 --ticks 600 --out out.jsonl \
+     [--scenario s.json] [--inputs i.json] [--snapshot-every 10]
+```
+
+Cấu hình khai báo trong [game.contract.json](game.contract.json) và được test khớp với số liệu thật trong `src/core.js`. Mọi khái niệm của contract đều có trong game nên không trường `tuning` nào là `null` (`fall_enabled` = `false`: không có phạt rơi khỏi đảo, người chơi bị giữ trong đảo).
+
+### Cấu trúc
+- `src/core.js` — lõi logic thuần (không DOM/GPU), dùng chung cho headless và web.
+- `src/headless.js` — CLI theo Test Contract.
+- `src/main.js`, `index.html` — hiển thị 3D bằng Three.js.
+- `tests/headless.test.js` — scenario kiểm chứng. Ghi chú, giả định: [docs/notes/phase-1.md](docs/notes/phase-1.md). Bằng chứng: [docs/proof/phase-1.md](docs/proof/phase-1.md).
+- `AGENTS.md` — harness cho agent AI.
+
+### Sáng tạo của tôi
+_Chưa có ở Phase 1 (làm lõi đúng trước)._
+
+---
+
 ## Tài liệu của lab
 
 | File | Nội dung |

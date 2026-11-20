@@ -1,0 +1,13 @@
+{
+  "name": "dao-den-long",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Dao Den Long - game 3D (Three.js) voi loi logic thuan co che do headless",
+  "scripts": {
+    "start": "node serve.js",
+    "headless": "node src/headless.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "engines": { "node": ">=18" }
+}
