@@ -5,22 +5,82 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Đảo Đèn Lồng</title>
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0614; font-family: system-ui, sans-serif; color: #ffe2b0; }
-  canvas { display: block; }
-  #hud { position: fixed; top: 12px; left: 12px; right: 12px; display: flex; gap: 18px; flex-wrap: wrap; font-size: 18px; text-shadow: 0 1px 4px #000; pointer-events: none; }
-  #hud div { background: rgba(20, 8, 40, .55); padding: 6px 12px; border-radius: 10px; border: 1px solid rgba(255, 170, 70, .35); }
-  #help { position: fixed; bottom: 12px; left: 12px; font-size: 13px; opacity: .8; background: rgba(20, 8, 40, .55); padding: 6px 12px; border-radius: 10px; }
-  #msg { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column; background: rgba(10, 4, 20, .72); text-align: center; }
-  #msg h1 { font-size: 44px; margin: 0 0 8px; color: #ffb347; }
-  #msg p { font-size: 20px; margin: 4px; }
+  :root { --glow: #ffb347; --glow2: #ffe2b0; --ink: rgba(24, 10, 46, .72); --edge: rgba(255, 170, 70, .5); }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0614; font-family: "Segoe UI", system-ui, sans-serif; color: var(--glow2); user-select: none; }
+  canvas { display: block; cursor: crosshair; }
+  .panel { background: var(--ink); border: 2px solid var(--edge); border-radius: 18px; padding: 10px 18px; box-shadow: 0 0 24px rgba(255, 150, 40, .18), inset 0 0 18px rgba(255, 150, 40, .08); backdrop-filter: blur(4px); }
+  .hud { position: fixed; pointer-events: none; text-shadow: 0 2px 6px #000; }
+  #left { top: 16px; left: 16px; display: flex; flex-direction: column; gap: 10px; }
+  #left .label, #score .label { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; opacity: .7; margin-bottom: 4px; }
+  #flames { font-size: 38px; line-height: 1; display: flex; gap: 6px; }
+  #flames span { transition: filter .3s, opacity .3s, transform .3s; }
+  #flames span.off { filter: grayscale(1) brightness(.4); opacity: .5; transform: scale(.8); }
+  #motes { display: flex; gap: 8px; }
+  .pip { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--edge); background: rgba(255, 255, 255, .05); transition: all .2s; }
+  .pip.on { background: radial-gradient(circle, #fff6c0 0%, #ffd34d 55%, #ff9a2e 100%); box-shadow: 0 0 14px #ffc94d; border-color: #ffe9a0; }
+  #center { top: 16px; left: 50%; transform: translateX(-50%); text-align: center; min-width: 300px; }
+  #lanterns { display: flex; justify-content: center; gap: 14px; font-size: 40px; }
+  #lanterns span { transition: all .4s; filter: grayscale(1) brightness(.45); }
+  #lanterns span.lit { filter: drop-shadow(0 0 12px #ff9a2e); }
+  #lanterns span.part { filter: grayscale(.4) brightness(.8); }
+  #timebar { height: 10px; margin-top: 8px; border-radius: 6px; background: rgba(255, 255, 255, .1); overflow: hidden; }
+  #timefill { height: 100%; width: 100%; background: linear-gradient(90deg, #8a4bd6, #ffb347); border-radius: 6px; }
+  #time { font-size: 22px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  #score { top: 16px; right: 16px; text-align: right; }
+  #scoreVal { font-size: 46px; font-weight: 700; color: var(--glow); font-variant-numeric: tabular-nums; line-height: 1.05; }
+  #pulse { bottom: 24px; left: 50%; transform: translateX(-50%); width: 220px; text-align: center; padding: 8px 18px 12px; }
+  #pulse .key { font-size: 20px; font-weight: 700; }
+  #pulse .sub { font-size: 12px; opacity: .75; }
+  #pulseBar { height: 8px; margin-top: 6px; border-radius: 5px; background: rgba(255, 255, 255, .12); overflow: hidden; }
+  #pulseFill { height: 100%; width: 100%; background: var(--glow); border-radius: 5px; }
+  #pulse.wait { opacity: .6; }
+  #pulse.empty { opacity: .45; }
+  #help { bottom: 16px; left: 16px; font-size: 13px; line-height: 1.7; padding: 8px 14px; border-radius: 12px; }
+  #help b { color: var(--glow); }
+  #hint { bottom: 24px; right: 16px; font-size: 15px; padding: 8px 14px; border-radius: 12px; display: none; }
+  #msg { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column; background: radial-gradient(circle, rgba(60, 25, 90, .75), rgba(8, 3, 16, .92)); text-align: center; }
+  #msg h1 { font-size: 56px; margin: 0 0 8px; color: var(--glow); text-shadow: 0 0 30px rgba(255, 150, 40, .6); }
+  #msg p { font-size: 24px; margin: 6px; }
+  #msg .big { font-size: 40px; font-weight: 700; color: var(--glow); }
+  #msg .small { font-size: 16px; opacity: .8; }
+  @media (max-width: 1100px) {
+    .panel { padding: 7px 12px; border-radius: 14px; }
+    #left { top: 10px; left: 10px; gap: 8px; }
+    #flames { font-size: 26px; gap: 3px; }
+    .pip { width: 16px; height: 16px; }
+    #motes { gap: 5px; }
+    #center { top: 10px; min-width: 0; width: 300px; }
+    #lanterns { font-size: 28px; gap: 8px; }
+    #time { font-size: 17px; }
+    #score { top: 10px; right: 10px; }
+    #scoreVal { font-size: 32px; }
+    #help { display: none; }
+  }
 </style>
 </head>
 <body>
-<div id="hud">
-  <div id="flames"></div><div id="carried"></div><div id="lanterns"></div><div id="time"></div><div id="score"></div>
+<div id="left" class="hud">
+  <div class="panel"><div class="label">Ngọn lửa</div><div id="flames"></div></div>
+  <div class="panel"><div class="label">Đom đóm mang theo</div><div id="motes"></div></div>
 </div>
-<div id="help">WASD đi · Space nhảy · E nạp ánh sáng vào đèn · F tỏa sáng · ←/→ hoặc Z/C xoay camera · R chơi lại</div>
-<div id="msg"><h1 id="msgTitle"></h1><p id="msgBody"></p><p>Nhấn R để chơi lại</p></div>
+<div id="center" class="hud panel">
+  <div class="label" style="font-size:13px;letter-spacing:.12em;opacity:.7">ĐÈN LỒNG <span id="lanternCount"></span></div>
+  <div id="lanterns"></div>
+  <div id="timebar"><div id="timefill"></div></div>
+  <div id="time"></div>
+</div>
+<div id="score" class="hud panel"><div class="label">Điểm</div><div id="scoreVal">0</div></div>
+<div id="pulse" class="hud panel">
+  <div class="key">F · Tỏa sáng</div>
+  <div class="sub" id="pulseSub"></div>
+  <div id="pulseBar"><div id="pulseFill"></div></div>
+</div>
+<div id="help" class="hud panel">
+  <b>Giữ chuột trái</b> đi theo con trỏ · <b>WASD</b> đi<br>
+  <b>Space</b> nhảy · <b>E</b> nạp đèn · <b>F</b> tỏa sáng<br>
+  <b>← →</b> hoặc <b>Z C</b> xoay camera
+</div>
+<div id="msg"><h1 id="msgTitle"></h1><p id="msgBody"></p><p class="big" id="msgScore"></p><p class="small">Nhấn R để chơi lại</p></div>
 <script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }</script>
 <script type="module" src="src/main.js"></script>
 </body>

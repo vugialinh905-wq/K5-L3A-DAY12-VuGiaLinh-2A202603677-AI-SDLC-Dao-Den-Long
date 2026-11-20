@@ -23,7 +23,8 @@ npm test             # 16 test headless
 
 | Phím | Hành động |
 |---|---|
-| W A S D | Di chuyển (theo hướng camera) |
+| Giữ chuột trái | Đi về phía con trỏ (gần con trỏ thì chậm lại) |
+| W A S D | Di chuyển (theo hướng camera; ưu tiên hơn chuột) |
 | Space | Nhảy |
 | E | Nạp ánh sáng vào đèn gần nhất (trong `interact_radius`) |
 | F | Tỏa sáng: làm choáng và đẩy lùi Bóng Mực, tốn 1 đom đóm |
@@ -50,7 +51,11 @@ Cấu hình khai báo trong [game.contract.json](game.contract.json) và đượ
 - `AGENTS.md` — harness cho agent AI.
 
 ### Sáng tạo của tôi
-_Chưa có ở Phase 1 (làm lõi đúng trước)._
+Toàn bộ phần này chỉ nằm ở lớp hiển thị (`src/main.js`, `index.html`); lõi `src/core.js` và chế độ headless không đổi, 16 test vẫn xanh.
+- Điều khiển bằng chuột: giữ chuột trái để đi về phía con trỏ.
+- HUD lớn hơn: thanh ngọn lửa, ô đom đóm, 5 đèn lồng sáng dần, thanh thời gian, điểm lớn, nút hồi chiêu tỏa sáng, màn thắng/thua có tóm tắt.
+- Đom đóm hình ngôi sao xoay, có quầng sáng.
+- Cảnh đảo: bụi cây, hoa nhỏ, đèn lồng giấy treo lơ lửng (sáng dần khi thắp thêm đèn).
 
 ---
 
