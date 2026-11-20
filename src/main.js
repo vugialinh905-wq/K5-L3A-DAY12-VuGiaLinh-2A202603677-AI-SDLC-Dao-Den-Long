@@ -1,19 +1,32 @@
 // Ban web 3D: dung chung loi logic src/core.js (fixed 60 tick/s), Three.js chi lo hien thi + luong man hinh.
 import * as THREE from 'three';
-import { createGame, step, drainEvents, windInfo, needLit, capacity, TUNING, CONSTANTS as K } from './core.js';
+import { createGame, createBenchGame, benchStep, step, drainEvents, windInfo, needLit, capacity, TUNING, CONSTANTS as K } from './core.js';
 import { buildWorld, setLitProgress, glowTexture, PAL } from './world.js';
 import * as audio from './audio.js';
+import { ACTIONS, defaultBindings, loadBindings, rebind, keyLabel, normalizeCode } from './bindings.js';
+import { validateName, makeEntry, addEntry, sanitizeEntries } from './leaderboard.js';
 
 const $ = (id) => document.getElementById(id);
+const BENCH = new URLSearchParams(location.search).get('bench') === '1';
 const DT = 1 / 60;
 
 // ---------- Cai dat (luu giua cac lan mo) ----------
-const settings = { volume: 0.7, sens: 1, cb: false }; // cb = bang mau de phan biet (mu mau)
+const settings = {
+  volume: 0.7, sens: 1, cb: false, // cb = bang mau de phan biet (mu mau)
+  captions: true, bigText: false, bindings: null,
+  reduceMotion: typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches,
+};
 try { Object.assign(settings, JSON.parse(localStorage.getItem('ddl_settings') || '{}')); } catch { /* khong co localStorage */ }
+settings.bindings = loadBindings(settings.bindings); // thieu / trung / sai -> mac dinh
 const saveSettings = () => { try { localStorage.setItem('ddl_settings', JSON.stringify(settings)); } catch { /* bo qua */ } };
 audio.setVolume(settings.volume);
-const applyCb = () => document.body.classList.toggle('cb', !!settings.cb);
-applyCb();
+const applyUi = () => {
+  document.body.classList.toggle('cb', !!settings.cb);
+  document.body.classList.toggle('bigtext', !!settings.bigText);
+  document.body.classList.toggle('reduce-motion', !!settings.reduceMotion);
+};
+const applyCb = applyUi;
+applyUi();
 const warn = (m) => (settings.cb ? '⚠ ' : '') + m;
 const lanternCost = (l) => (l.everLit ? TUNING.relight_cost : TUNING.lantern_cost);
 const FUEL_MAX_U = TUNING.fuel_max * 60, LOW_U = TUNING.low_fuel_threshold * 60;
@@ -29,7 +42,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(PAL.sky);
 scene.fog = new THREE.FogExp2(PAL.mist, 0.016);
 const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 300);
-addEventListener('resize', () => {
+if (!BENCH) addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
@@ -256,10 +269,10 @@ function disposeTree(o) {
 function clearViews() {
   for (const map of Object.values(views)) { for (const v of map.values()) scene.remove(v); map.clear(); }
 }
-function buildNightWorld(def) {
+function buildNightWorld(def, opts = {}) {
   if (worldGroup) { scene.remove(worldGroup); disposeTree(worldGroup); }
   clearViews();
-  worldGroup = buildWorld(def, glow);
+  worldGroup = buildWorld(def, glow, opts);
   scene.add(worldGroup);
 }
 
@@ -392,7 +405,7 @@ function syncViews(game, time) {
 
   // La bay bao gio manh
   const w = windInfo(game);
-  leaves.visible = w.active || w.warn;
+  leaves.visible = (w.active || w.warn) && !settings.reduceMotion;
   if (leaves.visible) {
     const sp = w.active ? 9 : 2.5, dx = Math.cos((w.dir_deg * Math.PI) / 180), dz = Math.sin((w.dir_deg * Math.PI) / 180);
     leafState.forEach((l, i) => {
@@ -408,30 +421,40 @@ function syncViews(game, time) {
 }
 
 // ---------- Camera ----------
-let yaw = 0;
+let yaw = 0, shake = 0;
 function updateCamera() {
   const th = (yaw * Math.PI) / 180;
   const fx = Math.sin(th), fz = Math.cos(th);
   const p = player.position;
   camera.position.set(p.x - fx * 9, p.y + 6, p.z - fz * 9);
   camera.lookAt(p.x, p.y + 1, p.z);
+  if (shake > 0 && !settings.reduceMotion) { // rung camera khi bi danh / toa sang (tat duoc bang Giam chuyen dong)
+    camera.position.x += (Math.random() - 0.5) * shake; camera.position.y += (Math.random() - 0.5) * shake * 0.6; camera.position.z += (Math.random() - 0.5) * shake;
+    camera.lookAt(p.x, p.y + 1, p.z);
+  }
   camera.updateMatrixWorld();
 }
 
 // ---------- Input ----------
 const keys = new Set();
 const mouse = { down: false, rot: false, x: 0, y: 0 };
-let pendingStep = null;
+let capture = null; // { id, btn } khi dang cho phim moi (doi phim)
+const bound = () => settings.bindings;
+const isTextField = (e) => e.target instanceof HTMLInputElement && e.target.type === 'text';
 addEventListener('keydown', (e) => {
-  if (e.repeat) { if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault(); return; }
-  keys.add(e.code);
-  if (['Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
-  if (e.code === 'Escape' || e.code === 'KeyP') {
+  if (capture) { e.preventDefault(); e.stopPropagation(); finishCapture(e.code); return; }
+  if (isTextField(e)) return; // dang go ten
+  const code = normalizeCode(e.code);
+  if (e.repeat) { if (run.state === 'play' && (code === 'Space' || code.startsWith('Arrow'))) e.preventDefault(); return; }
+  keys.add(code);
+  if (run.state === 'play' && (code === 'Space' || code.startsWith('Arrow'))) e.preventDefault();
+  if (code === bound().pause || code === 'KeyP') {
     if (run.state === 'play') pauseGame(); else if (run.state === 'pause') resumeGame();
   }
-  if (e.code === 'KeyR' && (run.state === 'result')) $('btnNext').click();
+  if (code === 'KeyH' && (run.state === 'play' || run.state === 'pause')) toggleHelp();
+  if (code === 'KeyR' && run.state === 'result') $('btnNext').click();
 });
-addEventListener('keyup', (e) => keys.delete(e.code));
+addEventListener('keyup', (e) => keys.delete(normalizeCode(e.code)));
 addEventListener('blur', () => { mouse.down = false; mouse.rot = false; keys.clear(); });
 renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 renderer.domElement.addEventListener('mousedown', (e) => {
@@ -463,17 +486,15 @@ function mouseMove(game) {
 
 let prevJump = false;
 function readInput(game, pause = false) {
-  // Camera nhin theo +forward => man hinh "phai" la -X o yaw=0, nen D => x = -1.
-  let x = (keys.has('KeyA') ? 1 : 0) - (keys.has('KeyD') ? 1 : 0);
-  let z = (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0) - (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0);
+  const b = bound();
+  // Camera nhin theo +forward => man hinh "phai" la -X o yaw=0, nen phai => x = -1.
+  let x = (keys.has(b.left) ? 1 : 0) - (keys.has(b.right) ? 1 : 0);
+  let z = (keys.has(b.forward) ? 1 : 0) - (keys.has(b.back) ? 1 : 0);
   if (x === 0 && z === 0) [x, z] = mouseMove(game);
-  const jump = keys.has('Space');
+  const jump = keys.has(b.jump);
   if (jump && !prevJump && game.player.grounded && game.state === 'playing') audio.sfx.jump();
   prevJump = jump;
-  return {
-    move: [x, z], cam_yaw_deg: yaw, jump, interact: keys.has('KeyE'), pulse: keys.has('KeyF'),
-    dash: keys.has('ShiftLeft') || keys.has('ShiftRight'), pause,
-  };
+  return { move: [x, z], cam_yaw_deg: yaw, jump, interact: keys.has(b.interact), pulse: keys.has(b.pulse), dash: keys.has(b.dash), pause };
 }
 
 // ---------- Man hinh / luong game ----------
@@ -482,8 +503,12 @@ const NIGHTS = {
   2: { name: 'Đêm 2 · Đảo Cau', quote: 'Đảo Cau có hai bờ nối bằng cây cầu tre không lan can. Bước cho vững, hoặc cứ nhảy lên bục để bay sang. Coi chừng Gió Lạc, chúng thích cuỗm đom đóm của người mang nhiều. Đêm nay cần giữ ít nhất 4 trên 6 ngọn đèn sáng tới bình minh.' },
   3: { name: 'Đêm 3 · Đảo Chuông', quote: 'Đảo Chuông cao ba tầng, gió thổi từng cơn. Ngọn đèn cuối nằm sát chân tháp chuông. Cần giữ ít nhất 5 trên 7 ngọn sáng tới bình minh. Ông Đăng tin Mây làm được.' },
 };
-const run = { night: 1, total: 0, state: 'menu', game: null, resultAt: 0, counted: false, lastSecond: -1, lastWarn: false, settingsFrom: 'menu' };
-const screens = ['menu', 'intro', 'pause', 'settings', 'result', 'dawn'];
+const run = {
+  night: 1, total: 0, state: 'menu', game: null, resultAt: 0, counted: false, lastSecond: -1, lastWarn: false, settingsFrom: 'menu',
+  nightsWon: 0, seed: 1, attempt: 0, weak: new Set(), shadeAlert: null, boardFrom: 'menu', lastEntry: null,
+};
+function newRun() { run.total = 0; run.nightsWon = 0; run.seed = (Date.now() & 0x7fffffff) || 1; run.attempt = 0; run.lastEntry = null; }
+const screens = ['menu', 'intro', 'pause', 'settings', 'board', 'result', 'dawn'];
 function show(name) {
   for (const s of screens) $(s).classList.toggle('on', s === name);
   document.body.classList.toggle('playing', run.state === 'play' || run.state === 'pause');
@@ -498,7 +523,8 @@ function showIntro(n) {
   show('intro');
 }
 function beginNight() {
-  run.game = createGame({ seed: (Date.now() & 0x7fffffff) || 1, night: run.night });
+  run.game = createGame({ seed: ((run.seed + run.night * 100 + run.attempt++) & 0x7fffffff) || 1, night: run.night });
+  run.weak.clear(); run.shadeAlert = null; hideNameForm(); showHelp(15000);
   buildNightWorld(run.game.def);
   yaw = 0; run.counted = false; run.lastSecond = -1; run.lastWarn = false;
   run.state = 'play';
@@ -524,8 +550,8 @@ function showResult() {
   const g = run.game, won = g.state === 'won';
   const lit = g.lanterns.filter((l) => l.lit).length, need = needLit(g);
   run.state = 'result';
-  if (won && !run.counted) { run.total += g.score; run.counted = true; }
-  if (won && run.night === 3) { $('dawnScore').textContent = run.total; run.state = 'dawn'; show('dawn'); return; }
+  if (won && !run.counted) { run.total += g.score; run.nightsWon += 1; run.counted = true; }
+  if (won && run.night === 3) { $('dawnScore').textContent = run.total; run.state = 'dawn'; show('dawn'); showNameForm('dawnSlot'); return; }
   $('resTitle').textContent = won ? `Bình minh! Đêm ${run.night} hoàn thành` : 'Sương đen nuốt mất ánh sáng…';
   $('resBody').textContent = won
     ? `${lit}/${g.lanterns.length} đèn còn sáng · còn ${g.player.flames} ngọn lửa`
@@ -534,11 +560,12 @@ function showResult() {
   $('resTotal').textContent = `Tổng điểm: ${run.total}`;
   $('btnNext').textContent = won ? 'Đêm kế tiếp' : `Chơi lại Đêm ${run.night}`;
   show('result');
+  if (won) hideNameForm(); else showNameForm('resSlot'); // thua o bat ky Dem nao cung duoc luu diem
 }
 function toMenu() { run.state = 'menu'; run.game = null; show('menu'); }
 function openSettings(from) { run.settingsFrom = from; $('settings').classList.add('on'); for (const s of screens) if (s !== 'settings') $(s).classList.remove('on'); }
 
-click('btnStart', () => { run.total = 0; showIntro(1); });
+click('btnStart', () => { newRun(); showIntro(1); });
 click('btnSettings', () => openSettings('menu'));
 click('btnGo', beginNight);
 click('btnResume', resumeGame);
@@ -550,7 +577,7 @@ click('btnNext', () => {
   if (run.game.state === 'won') showIntro(run.night + 1); else beginNight();
 });
 click('btnResMenu', toMenu);
-click('btnAgain', () => { run.total = 0; showIntro(1); });
+click('btnAgain', () => { newRun(); showIntro(1); });
 
 const volEl = $('vol'), sensEl = $('sens');
 volEl.value = Math.round(settings.volume * 100); sensEl.value = Math.round(settings.sens * 100);
@@ -562,6 +589,141 @@ volEl.addEventListener('change', () => audio.sfx.ui());
 const cbEl = $('cb');
 cbEl.checked = !!settings.cb;
 cbEl.addEventListener('change', () => { settings.cb = cbEl.checked; saveSettings(); applyCb(); audio.sfx.ui(); });
+for (const [id, key] of [['cap', 'captions'], ['rm', 'reduceMotion'], ['big', 'bigText']]) {
+  const el = $(id);
+  el.checked = !!settings[key];
+  el.addEventListener('change', () => { settings[key] = el.checked; saveSettings(); applyUi(); audio.sfx.ui(); });
+}
+
+// ---------- Doi phim ----------
+function renderKeys() {
+  const list = $('keyList');
+  list.textContent = '';
+  for (const a of ACTIONS) {
+    const row = document.createElement('div'); row.className = 'row';
+    const lab = document.createElement('label'); lab.textContent = a.label; lab.style.minWidth = '11em'; lab.htmlFor = 'key_' + a.id;
+    const btn = document.createElement('button'); btn.type = 'button'; btn.id = 'key_' + a.id; btn.className = 'keybtn'; btn.textContent = keyLabel(settings.bindings[a.id]);
+    btn.addEventListener('click', () => {
+      audio.initAudio();
+      if (capture && capture.btn === btn) { capture = null; renderKeys(); return; } // bam lai de huy
+      capture = { id: a.id, btn };
+      renderKeys();
+      const nb = $('key_' + a.id); nb.classList.add('capturing'); nb.textContent = 'Nhấn phím…'; nb.focus();
+      $('keyMsg').textContent = '';
+    });
+    row.append(lab, btn);
+    list.appendChild(row);
+  }
+  refreshKeyHints();
+}
+function finishCapture(code) {
+  const { id } = capture;
+  const r = rebind(settings.bindings, id, code);
+  capture = null;
+  if (r.ok) { settings.bindings = r.bindings; saveSettings(); $('keyMsg').textContent = ''; }
+  else $('keyMsg').textContent = `⚠ Phím ${keyLabel(normalizeCode(code))} đã dùng cho: ${r.conflict}. Hãy chọn phím khác.`;
+  renderKeys();
+  $('key_' + id)?.focus();
+}
+click('btnKeysReset', () => { settings.bindings = defaultBindings(); capture = null; saveSettings(); renderKeys(); $('keyMsg').textContent = ''; });
+
+// ---------- Tro giup phim (hien 15 s dau moi Dem, bam H de bat/tat) ----------
+let helpTimer = 0;
+function renderHelp() {
+  const b = settings.bindings, k = (id) => `<b>${keyLabel(b[id])}</b>`;
+  $('help').innerHTML = `Đi: ${k('forward')} ${k('left')} ${k('back')} ${k('right')} hoặc <b>giữ chuột trái</b><br>Nhảy ${k('jump')} · Lướt ${k('dash')}<br>Tương tác ${k('interact')} · Tỏa sáng ${k('pulse')}<br>Tạm dừng ${k('pause')} · Camera <b>← →</b> hoặc chuột phải · Ẩn: <b>H</b>`;
+}
+function showHelp(ms) { renderHelp(); $('help').classList.add('show'); clearTimeout(helpTimer); if (ms) helpTimer = setTimeout(() => $('help').classList.remove('show'), ms); }
+function toggleHelp() { clearTimeout(helpTimer); renderHelp(); $('help').classList.toggle('show'); }
+function refreshKeyHints() {
+  const b = settings.bindings;
+  $('keyDash').textContent = keyLabel(b.dash);
+  $('keyPulse').textContent = keyLabel(b.pulse);
+  $('menuHint').textContent = `Điều khiển: ${keyLabel(b.forward)}${keyLabel(b.left)}${keyLabel(b.back)}${keyLabel(b.right)} hoặc giữ chuột trái · ${keyLabel(b.jump)} nhảy · ${keyLabel(b.dash)} lướt · ${keyLabel(b.interact)} nạp đèn · ${keyLabel(b.pulse)} tỏa sáng · ${keyLabel(b.pause)} tạm dừng`;
+  renderHelp();
+}
+renderKeys();
+
+// ---------- Phu de / chi bao hinh anh ----------
+function caption(text, warnKind = false) {
+  if (!settings.captions) return;
+  const box = $('captions'), el = document.createElement('div');
+  el.className = 'cap' + (warnKind ? ' warn' : '');
+  el.textContent = (warnKind && settings.cb ? '⚠ ' : '') + text;
+  box.appendChild(el);
+  while (box.children.length > 4) box.firstChild.remove();
+  setTimeout(() => el.remove(), 4500);
+}
+
+// ---------- Bang xep hang (luu tren dia qua serve.js; du phong localStorage khi khong co server) ----------
+const LB_KEY = 'ddl_leaderboard', NAME_KEY = 'ddl_last_name';
+const loadLocalBoard = () => { try { return sanitizeEntries(JSON.parse(localStorage.getItem(LB_KEY) || '[]')); } catch { return []; } };
+const saveLocalBoard = (e) => { try { localStorage.setItem(LB_KEY, JSON.stringify(e)); } catch { /* bo qua */ } };
+async function fetchBoard() {
+  try {
+    const r = await fetch('/api/leaderboard', { cache: 'no-store' });
+    if (!r.ok) throw new Error(String(r.status));
+    return { entries: sanitizeEntries(await r.json()), source: 'server' };
+  } catch { return { entries: loadLocalBoard(), source: 'local' }; }
+}
+async function submitScore(name) {
+  const payload = { name, score: run.total, nights_won: run.nightsWon, seed: run.seed };
+  try {
+    const r = await fetch('/api/leaderboard', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const j = await r.json();
+    if (!r.ok) return { ok: false, error: j.error || 'Không lưu được' };
+    return { ok: true, entry: j.entry, rank: j.rank };
+  } catch { // khong co server: luu tren trinh duyet
+    try {
+      const entry = makeEntry(payload);
+      const { entries, rank } = addEntry(loadLocalBoard(), entry);
+      saveLocalBoard(entries);
+      return { ok: true, entry, rank, local: true };
+    } catch (e) { return { ok: false, error: e.message }; }
+  }
+}
+function hideNameForm() { $('nameForm').classList.remove('show'); }
+function showNameForm(slotId) {
+  const f = $('nameForm');
+  $(slotId).appendChild(f);
+  f.classList.add('show');
+  $('nameMsg').textContent = ''; $('nameMsg').className = '';
+  $('btnSave').disabled = false;
+  try { $('nameInput').value = localStorage.getItem(NAME_KEY) || ''; } catch { $('nameInput').value = ''; }
+}
+async function saveScore() {
+  const msg = $('nameMsg'), v = validateName($('nameInput').value);
+  if (!v.ok) { msg.textContent = v.reason; msg.className = 'err'; $('nameInput').focus(); return; }
+  $('btnSave').disabled = true;
+  const r = await submitScore(v.name);
+  if (!r.ok) { msg.textContent = r.error; msg.className = 'err'; $('btnSave').disabled = false; return; }
+  try { localStorage.setItem(NAME_KEY, v.name); } catch { /* bo qua */ }
+  run.lastEntry = r.entry;
+  msg.className = '';
+  msg.textContent = r.rank >= 0 ? `Đã lưu! Bạn xếp hạng #${r.rank + 1}.` : 'Đã lưu, nhưng chưa vào top 10.';
+  openBoard(run.state === 'dawn' ? 'dawn' : 'result');
+}
+async function openBoard(from) {
+  run.boardFrom = from;
+  show('board');
+  const tb = $('boardRows');
+  tb.textContent = '';
+  const { entries, source } = await fetchBoard();
+  $('boardNote').textContent = entries.length ? (source === 'local' ? 'Lưu trên trình duyệt này (không có server).' : 'Top 10 điểm cao nhất, lưu trên máy bạn.') : 'Chưa có ai trong bảng xếp hạng. Hãy là người đầu tiên!';
+  entries.forEach((e, i) => {
+    const tr = document.createElement('tr');
+    if (run.lastEntry && e.achieved_at === run.lastEntry.achieved_at && e.name === run.lastEntry.name) tr.className = 'me';
+    const cell = (text, cls) => { const td = document.createElement('td'); td.textContent = text; if (cls) td.className = cls; tr.appendChild(td); };
+    cell(i + 1, 'num'); cell(e.name); cell(e.score, 'num'); cell(`${e.nights_won}/3`, 'num');
+    cell(new Date(e.achieved_at).toLocaleDateString('vi-VN'));
+    tb.appendChild(tr);
+  });
+}
+click('btnBoard', () => openBoard('menu'));
+click('btnDawnBoard', () => openBoard('dawn'));
+click('btnBoardBack', () => show(run.boardFrom));
+click('btnSave', saveScore);
+$('nameInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveScore(); } });
 
 // ---------- Su kien tu loi game -> am thanh + hieu ung ----------
 let toastTimer = 0;
@@ -569,7 +731,7 @@ function toast(msg) {
   const t = $('toast'); t.textContent = msg; t.style.display = 'block';
   clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.style.display = 'none'; }, 2200);
 }
-function flash() { const f = $('flash'); f.style.opacity = 1; setTimeout(() => { f.style.opacity = 0; }, 160); }
+function flash() { if (settings.reduceMotion) return; const f = $('flash'); f.style.opacity = 1; setTimeout(() => { f.style.opacity = 0; }, 160); }
 function handleEvents(evs) {
   for (const e of evs) {
     switch (e.name) {
@@ -579,10 +741,10 @@ function handleEvents(evs) {
       case 'refuel': audio.sfx.deposit(); toast(`Châm dầu +${e.data.amount} đom đóm → ${Math.round(e.data.fuel)}%`); break;
       case 'lantern_out': audio.sfx.out(); toast(warn('Một ngọn đèn đã cạn dầu và tắt!')); break;
       case 'fuel_drain': audio.sfx.steal(); toast(warn('Bóng Mực đang hút dầu đèn!')); break;
-      case 'pulse': audio.sfx.pulse(); break;
+      case 'pulse': audio.sfx.pulse(); shake = 0.2; break;
       case 'dash': audio.sfx.dash(); break;
-      case 'player_hit': audio.sfx.hit(); flash(); if (e.data.by === 'fall') toast('Mây rơi khỏi đảo! Mất hết đom đóm.'); break;
-      case 'shade_spawned': audio.sfx.spawn(); break;
+      case 'player_hit': audio.sfx.hit(); flash(); shake = 0.45; if (e.data.by === 'fall') toast('Mây rơi khỏi đảo! Mất hết đom đóm.'); break;
+      case 'shade_spawned': audio.sfx.spawn(); caption('Bóng Mực xuất hiện!', true); run.shadeAlert = { id: e.data.id, until: performance.now() + 4500 }; break;
       case 'charm_picked': audio.sfx.charm(); toast('Bùa Gió! Chạy nhanh hơn và lướt không cần chờ.'); break;
       case 'drifter_steal': audio.sfx.steal(); toast(`Gió Lạc cuỗm ${e.data.amount} đom đóm! Tỏa sáng để đòi lại.`); break;
       case 'drifter_drop': toast('Đã đòi lại đom đóm!'); break;
@@ -617,8 +779,17 @@ function hud(game) {
   $('time').classList.toggle('danger', left <= 30);
   if (left <= 30 && settings.cb) $('time').textContent = '⚠ ' + $('time').textContent;
   const sec = Math.ceil(left);
-  if (game.state === 'playing' && !game.paused && sec <= 10 && sec > 0 && sec !== run.lastSecond) { audio.sfx.tick(); }
+  const cdn = $('countdown');
+  if (game.state === 'playing' && !game.paused && sec <= 10 && sec > 0) {
+    if (sec !== run.lastSecond) { audio.sfx.tick(); if (sec === 10) caption('10 giây cuối!', true); }
+    cdn.style.display = settings.captions ? 'block' : 'none'; cdn.textContent = (settings.cb ? '⚠ ' : '') + sec;
+  } else cdn.style.display = 'none';
   run.lastSecond = sec;
+  for (const l of game.lanterns) { // chi bao: den co fuel < 30
+    const weak = l.lit && l.fuelU < LOW_U;
+    if (weak && !run.weak.has(l.id)) { run.weak.add(l.id); caption(`Đèn ${l.id} sắp hết dầu (${Math.floor(l.fuelU / 60)}%)`, true); }
+    else if (!weak) run.weak.delete(l.id);
+  }
   charmEl.style.display = p.charm > 0 ? 'block' : 'none';
   charmEl.textContent = `Bùa Gió · ${(p.charm / 60).toFixed(1)}s`;
 
@@ -644,23 +815,41 @@ function hud(game) {
       + (p.carried === 0 ? ' · cần đom đóm' : '');
   } else pr.style.display = 'none';
   const ar = $('arrow');
-  if (target && !near) {
-    ndc.set(target.pos[0], target.pos[1] + 3.4, target.pos[2]).project(camera);
-    const behind = ndc.z > 1;
-    let x = ndc.x, y = ndc.y;
-    if (behind) { x = -x; y = -y; }
-    const off = behind || Math.abs(x) > 0.92 || Math.abs(y) > 0.88;
-    if (off) {
-      const m = Math.max(Math.abs(x) / 0.92, Math.abs(y) / 0.88, 1e-6);
-      x /= m; y /= m;
-      if (Math.abs(x) < 1e-3 && Math.abs(y) < 1e-3) y = -0.88;
-      ar.style.display = 'block';
-      ar.style.left = ((x * 0.5 + 0.5) * innerWidth) + 'px';
-      ar.style.top = ((-y * 0.5 + 0.5) * innerHeight) + 'px';
-      ar.style.transform = `rotate(${Math.atan2(x, y) * 180 / Math.PI}deg)`;
-    } else ar.style.display = 'none';
-  } else ar.style.display = 'none';
+  if (target && !near) placeEdgeArrow(ar, target.pos[0], target.pos[1] + 3.4, target.pos[2], false);
+  else ar.style.display = 'none';
+  // mui ten chi huong Bong Muc vua xuat hien (o mep man hinh, ke ca khi no dang nam trong khung hinh)
+  const sa = $('shadeArrow'), al = run.shadeAlert;
+  const sh = settings.captions && al && performance.now() < al.until ? game.shades.find((x) => x.id === al.id) : null;
+  if (sh) placeEdgeArrow(sa, sh.pos[0], sh.pos[1], sh.pos[2], true); else sa.style.display = 'none';
 }
+
+function placeEdgeArrow(el, wx, wy, wz, always) {
+  ndc.set(wx, wy, wz).project(camera);
+  const behind = ndc.z > 1;
+  let x = ndc.x, y = ndc.y;
+  if (behind) { x = -x; y = -y; }
+  const off = behind || Math.abs(x) > 0.92 || Math.abs(y) > 0.88;
+  if (!off && !always) { el.style.display = 'none'; return; }
+  const m = Math.max(Math.abs(x) / 0.92, Math.abs(y) / 0.88, 1e-6);
+  x /= m; y /= m;
+  if (Math.abs(x) < 1e-3 && Math.abs(y) < 1e-3) y = -0.88;
+  el.style.display = 'block';
+  el.style.left = ((x * 0.5 + 0.5) * innerWidth) + 'px';
+  el.style.top = ((-y * 0.5 + 0.5) * innerHeight) + 'px';
+  el.style.transform = `rotate(${Math.atan2(x, y) * 180 / Math.PI}deg)`;
+}
+
+// Kiem tra co chu: moi van ban dang hien phai >= 18 px o 1280x720 (xem docs/proof/phase-4.md)
+window.__auditFonts = () => {
+  const out = [];
+  document.querySelectorAll('body *').forEach((el) => {
+    if (!el.getClientRects().length) return;
+    if (!Array.from(el.childNodes).some((n) => n.nodeType === 3 && n.textContent.trim())) return;
+    const fs = parseFloat(getComputedStyle(el).fontSize);
+    if (fs < 18) out.push({ el: el.id || el.className || el.tagName, fs, text: el.textContent.trim().slice(0, 40) });
+  });
+  return out;
+};
 
 // ---------- Vong lap ----------
 let acc = 0, last = performance.now(), fpsAcc = 0, fpsN = 0, adapted = false;
@@ -679,9 +868,10 @@ function frame(now) {
         acc -= DT;
       }
       const w = windInfo(g);
-      if (w.warn && !run.lastWarn) { audio.sfx.wind(); toast('Gió sắp nổi! Bám chắc.'); }
+      if (w.warn && !run.lastWarn) { audio.sfx.wind(); toast('Gió sắp nổi! Bám chắc.'); caption('Gió sắp thổi! Bám chắc.', true); }
       run.lastWarn = w.warn;
     }
+    shake = Math.max(0, shake - dt * 1.2);
     syncViews(g, now / 1000);
     updateCamera();
     hud(g);
@@ -698,16 +888,60 @@ function frame(now) {
 }
 let _menu = null;
 function menuGame() { return (_menu ||= createGame({ seed: 1, night: 1 })); }
-buildNightWorld(menuGame().def);
-syncViews(menuGame(), 0);
-requestAnimationFrame(frame);
+
+// ---------- Benchmark (Ticket-04): http://localhost:PORT/index.html?bench=1&seed=42&duration=30 (do bang `node bench.js`) ----------
+function runBench() {
+  const q = new URLSearchParams(location.search);
+  const seed = Number(q.get('seed')) || 42, duration = Number(q.get('duration')) || 30;
+  document.querySelectorAll('.screen').forEach((e) => e.classList.remove('on'));
+  document.body.classList.add('bench');
+  try { const dx = 1280 - innerWidth, dy = 720 - innerHeight; if (dx || dy) window.resizeTo(outerWidth + dx, outerHeight + dy); } catch { /* khong doi duoc cua so */ }
+  renderer.setPixelRatio(1);
+  renderer.setSize(1280, 720); // cua so chuan 1280x720
+  renderer.domElement.style.cssText = 'position:fixed;left:0;top:0;width:1280px;height:720px;cursor:none';
+  camera.aspect = 1280 / 720; camera.updateProjectionMatrix();
+  const g = createBenchGame(seed);
+  buildNightWorld(g.def, { bench: true }); // chi canh chuan: tat phan trang tri sang tao
+  const WARM = 3000, MEASURE = duration * 1000;
+  let t0 = null, prev = null, acc = 0, firstEpoch = null;
+  const dts = [];
+  const finish = async () => {
+    const gl = renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info');
+    const gpu = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+    const ver = typeof WebGL2RenderingContext !== 'undefined' && gl instanceof WebGL2RenderingContext ? 'WebGL2' : 'WebGL1';
+    const ua = (navigator.userAgent.match(/(Chrome|Edg)\/[\d.]+/g) || [navigator.userAgent]).join(' ');
+    const body = { dts, first_frame_epoch_ms: firstEpoch, renderer: `Three.js r${THREE.REVISION} / ${ver} / ${gpu} / ${ua}`, inner: [innerWidth, innerHeight], seed, duration };
+    try { await fetch('/__bench', { method: 'POST', body: JSON.stringify(body) }); } catch { /* bench.js se het gio */ }
+    document.title = 'Benchmark xong';
+  };
+  const loop = (now) => {
+    if (t0 === null) { t0 = now; firstEpoch = performance.timeOrigin + now; }
+    if (prev !== null) { acc += Math.min(0.1, (now - prev) / 1000); while (acc >= DT) { benchStep(g); acc -= DT; } }
+    syncViews(g, now / 1000);
+    const th = ((now - t0) / 15000) * Math.PI * 2; // 15 s / vong, nguoc chieu kim dong ho, bat dau o goc 0 (30, 15, 0)
+    camera.position.set(30 * Math.cos(th), 15, 30 * Math.sin(th));
+    camera.lookAt(0, 0, 0); camera.updateMatrixWorld();
+    renderer.render(scene, camera);
+    if (prev !== null && now - t0 >= WARM) dts.push(now - prev);
+    prev = now;
+    if (now - t0 >= WARM + MEASURE) { finish(); return; }
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+}
+if (BENCH) runBench();
+else {
+  buildNightWorld(menuGame().def);
+  syncViews(menuGame(), 0);
+  requestAnimationFrame(frame);
+}
 window.__run = () => run;
 window.__game = () => run.game;
 
 // Duong tat de thu nhanh: http://localhost:8080/?night=2 (hoac 3) mo thang man gioi thieu Dem do
 {
   const q = new URLSearchParams(location.search).get('night');
-  if (q === '1' || q === '2' || q === '3') { run.total = 0; showIntro(Number(q)); }
+  if (q === '1' || q === '2' || q === '3') { newRun(); showIntro(Number(q)); }
 }
 
 // Roi tab / an cua so: tu dong tam dung game va tat tieng (khong de nhac chay ngam)

@@ -35,7 +35,7 @@ function disc(cx, cz, r, top, bottom, h) {
   return [m, rim];
 }
 
-export function buildWorld(def, glow) {
+export function buildWorld(def, glow, opts = {}) {
   const root = new THREE.Group();
   const add = (...o) => o.forEach((x) => root.add(x));
 
@@ -94,7 +94,8 @@ export function buildWorld(def, glow) {
     for (const pad of def.pads) add(...makePad(pad, glow));
   }
 
-  decorate(root, def, glow);
+  if (opts.bench) floaters.length = 0; // benchmark: chi canh chuan, khong co phan trang tri sang tao
+  else decorate(root, def, glow);
   return root;
 }
 

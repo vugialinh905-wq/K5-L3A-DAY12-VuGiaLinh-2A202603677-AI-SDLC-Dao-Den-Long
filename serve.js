@@ -1,22 +1,23 @@
-// Server tinh toi gian de choi ban web: node serve.js  ->  http://localhost:8080
-import http from 'node:http';
+// Choi ban web:  node serve.js   ->  http://localhost:8080
+// Xuat bang xep hang:  node serve.js --export-leaderboard out.json   ({"entries":[...]}, top 10 dung thu tu)
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createAppServer, loadLeaderboard } from './src/server.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
-const port = Number(process.env.PORT) || 8080;
-const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.json': 'application/json' };
+const dataDir = process.env.DDL_DATA_DIR ? path.resolve(process.env.DDL_DATA_DIR) : path.join(root, 'data');
+const args = process.argv.slice(2);
+const argOf = (name) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined; };
 
-http.createServer((req, res) => {
-  const url = decodeURIComponent(req.url.split('?')[0]);
-  if (url === '/favicon.ico') { res.writeHead(204); res.end(); return; }
-  const rel = url === '/' ? '/index.html' : url;
-  const file = path.normalize(path.join(root, rel));
-  if (!file.startsWith(root) || !/^\/(index\.html|src\/|public\/)/.test(rel)) { res.writeHead(404); res.end('Not found'); return; }
-  fs.readFile(file, (err, data) => {
-    if (err) { res.writeHead(404); res.end('Not found'); return; }
-    res.writeHead(200, { 'Content-Type': types[path.extname(file)] || 'application/octet-stream' });
-    res.end(data);
-  });
-}).listen(port, () => console.log(`Dao Den Long: http://localhost:${port}`));
+if (args.includes('--export-leaderboard')) {
+  const out = argOf('--export-leaderboard');
+  if (!out || out.startsWith('--')) { process.stderr.write('Thiếu đường dẫn: --export-leaderboard <file.json>\n'); process.exit(1); }
+  try {
+    fs.writeFileSync(out, JSON.stringify({ entries: loadLeaderboard(dataDir) }, null, 2) + '\n');
+  } catch (e) { process.stderr.write('Không ghi được file xuất: ' + e.message + '\n'); process.exit(1); }
+  process.exit(0);
+}
+
+const port = Number(argOf('--port')) || Number(process.env.PORT) || 8080;
+createAppServer({ root, dataDir }).listen(port, () => console.log(`Dao Den Long: http://localhost:${port}`));

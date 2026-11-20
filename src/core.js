@@ -1,4 +1,4 @@
-// Loi logic Dao Den Long, Test Contract v1.2 (Ticket-03: Den can dau). v1.1 = Ticket-02 (Ba hon dao).
+// Loi logic Dao Den Long, Test Contract v1.3 (Ticket-04: phat hanh; luat khong doi so voi v1.2 Ticket-03: Den can dau).
 // Thuan JS, khong phu thuoc DOM/GPU => dung chung cho headless va ban web.
 // Quy uoc: 60 tick/s; met, giay; Y huong len; toa do cuc (x = cx + r*cos(a), z = r*sin(a)), goc do tu +X;
 // khoang cach mac dinh do tren XZ, "trong ban kinh r" = <= r. Thu tu xu ly trong tick theo dung Ticket-02.
@@ -796,7 +796,7 @@ function moveShade(g, s) {
     else return;
   }
   const d = dist2(s.pos, p.pos);
-  if (s.state === 'wander' && d <= K.detect) { s.state = 'chase'; s.target = null; s.pinned = false; }
+  if (s.state === 'wander' && !g.noDetect && d <= K.detect) { s.state = 'chase'; s.target = null; s.pinned = false; } // noDetect: chi canh benchmark
   else if (s.state === 'chase' && d > K.lose) s.state = 'wander';
   const spd = g.def.shadeSpeed;
   if (s.state === 'chase') {
@@ -894,4 +894,37 @@ export function makeInputFeeder(inputs) {
     }
     return cur;
   };
+}
+
+// ---------------------------------------------------------------- Canh benchmark (Ticket-04)
+// 200 Bong Muc `wander` rai deu (hoa huong duong, seed), 100 dom dom, den L1-L3 sang fuel 100, May dung yen o (0,0,0).
+// Tat: sinh them, sat thuong, nhat dom dom, hao dau, ket thuc Dem (benchStep chi di chuyen bong theo luat wander).
+export function createBenchGame(seed = 42) {
+  const lit = ['L1', 'L2', 'L3'].map((id) => ({ id, lit: true, fuel: 100 }));
+  const g = createGame({
+    seed, night: 1,
+    scenario: { random_motes: false, random_shades: false, random_drifters: false, wind_enabled: false, motes: [], shades: [], lanterns: lit, player: { pos: [0, 0, 0] } },
+  });
+  g.noDetect = true; // bong khong chuyen sang chase du Mây o gan
+  g.bench = true;
+  const GOLDEN = 2.399963229728653;
+  for (let i = 0; i < 200; i++) {
+    const r = 38 * Math.sqrt((i + 0.5) / 200), a = i * GOLDEN + (g.rng() - 0.5) * 0.35;
+    g.shades.push({
+      id: 'S' + (i + 1), pos: [r * Math.cos(a), 1, r * Math.sin(a)], state: 'wander', ticks: 0,
+      knock: 0, knockDir: [1, 0], wdir: 0, wt: 0, expel: null, target: null, pinned: false, drainTicks: 0,
+    });
+  }
+  g.nextShade = 201;
+  for (let i = 0; i < 100; i++) {
+    const r = 37 * Math.sqrt((i + 0.5) / 100), a = i * GOLDEN + 0.8 + (g.rng() - 0.5) * 0.4;
+    g.motes.push({ id: 'M' + (i + 1), pos: [r * Math.cos(a), 0, r * Math.sin(a)], kind: 'random', ttl: null });
+  }
+  g.nextMote = 101;
+  return g;
+}
+
+export function benchStep(g) {
+  g.tick += 1;
+  for (const s of g.shades) moveShade(g, s);
 }

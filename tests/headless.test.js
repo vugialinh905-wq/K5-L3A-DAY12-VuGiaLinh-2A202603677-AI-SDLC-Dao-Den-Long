@@ -38,9 +38,10 @@ const Q = { random_motes: false, random_shades: false, random_drifters: false, w
 const press = (tick, key) => [{ tick, [key]: true }, { tick: tick + 1, [key]: false }];
 
 // [Ticket-03] Doi ten + cap nhat: contract_version 1.2, 3 thoi luong moi, khoa nhien lieu, diem moi.
-test('contract v1.2: tuning khop so chuan, co cac khoa nhien lieu', () => {
+// [Ticket-04] contract_version nang len 1.3 (them bench_cmd, soak_cmd: xem tests/phase4.test.js); tuning khong doi so voi v1.2.
+test('contract v1.3: tuning khop so chuan v1.2, co cac khoa nhien lieu', () => {
   const c = JSON.parse(fs.readFileSync(path.join(root, 'game.contract.json'), 'utf8'));
-  assert.equal(c.contract_version, '1.2');
+  assert.equal(c.contract_version, '1.3');
   assert.deepEqual(c.tuning, JSON.parse(JSON.stringify(TUNING)));
   const t = c.tuning;
   assert.deepEqual([t.fuel_max, t.fuel_decay_per_s, t.fuel_per_mote, t.relight_cost, t.win_ratio, t.drain_per_s, t.low_fuel_threshold, t.capacity_max], [100, 1.0, 10, 5, 0.6, 5, 30, 20]);

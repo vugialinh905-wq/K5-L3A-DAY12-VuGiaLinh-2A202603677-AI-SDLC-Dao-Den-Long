@@ -1,5 +1,25 @@
 # Changelog
 
+## Phase 4 — Ticket-04 "Bình minh: phát hành v1.0.0" (Contract v1.3)
+
+Luật, số liệu và đầu ra headless **không đổi** so với v1.2.
+
+### Thêm mới
+- `bench.js` (benchmark 1280×720, cảnh chuẩn 200 Bóng Mực + 100 đom đóm) và `soak.js` (10 Đêm liên tiếp); `bench.json`, `soak.json` do chính các lệnh tạo ra. `game.contract.json` thêm `bench_cmd`, `soak_cmd`, `contract_version` "1.3".
+- Bảng xếp hạng cục bộ (top 10, lưu trên đĩa `data/leaderboard.json`), màn Bảng xếp hạng từ menu, nhập tên sau Bình Minh hoặc khi thua; `node serve.js --export-leaderboard out.json`.
+- Tiếp cận: đổi phím (9 hành động, báo trùng, khôi phục mặc định), phụ đề / chỉ báo hình ảnh (Bóng Mực xuất hiện kèm mũi tên, gió sắp thổi, 10 giây cuối, đèn dưới 30 dầu), giảm chuyển động, chữ lớn ×1.25, chữ UI tối thiểu 18 px ở 1280×720.
+- Three.js 0.160.0 vendor vào `vendor/` (chạy không cần mạng); `npm run release` tạo zip web tĩnh; README, CREDITS, retro, kịch bản demo.
+
+### Thay đổi hành vi (không đổi luật chơi)
+- Phím **↑ ↓** không còn là phím đi mặc định (vẫn gán được); mặc định đi bằng W A S D. Phím cố định: ← → Z C (camera), P (tạm dừng phụ), H (trợ giúp).
+- Bảng trợ giúp phím ẩn mặc định, hiện 15 giây đầu mỗi Đêm và bấm H để bật/tắt (trước đây luôn hiện).
+- Cỡ chữ HUD và menu tăng để đạt 18 px; màn hình tạm dừng/menu cuộn được khi nội dung dài.
+- Thêm rung camera ngắn khi bị đánh / tỏa sáng (tắt được bằng "Giảm chuyển động").
+- `serve.js` giờ dựa trên `src/server.js` và có API `/api/leaderboard`. Không có thay đổi phá vỡ tương thích với `headless_cmd`.
+
+### Test
+72 test (59 → 72): thêm `tests/phase4.test.js` (bảng xếp hạng, API, xuất, đổi phím, thống kê benchmark, cảnh benchmark, soak). Đổi tên một test: "contract v1.2" → "contract v1.3" (phiên bản contract nâng lên 1.3, tuning không đổi). Không test nào bị skip hay xóa.
+
 ## Phase 3 — Ticket-03 "Đèn cạn dầu" (Contract v1.2)
 
 ### Thay đổi phá vỡ tương thích (breaking changes)
